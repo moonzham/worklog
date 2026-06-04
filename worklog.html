@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>worklog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F6F3;--surface:#FFFFFF;--border:#E8E6E0;--border2:#D4D1C8;
+  --text:#1A1916;--text2:#6B6860;--text3:#A8A59E;
+  --red:#C94040;--blue:#2E6FB5;--amber:#D06A10;--green:#1F7A52;--purple:#5E52B8;
+  --p-high:#C94040;--p-mid:#D06A10;--p-low:#1F7A52;
+  --radius:6px;--radius-lg:10px;
+}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+textarea,select,input{font-family:inherit}
+
+/* NAV */
+.topnav{display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:44px;flex-shrink:0;gap:0}
+.logo{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--text);margin-right:20px}
+.tab-btn{font-size:13px;padding:0 14px;height:44px;border:none;background:none;color:var(--text2);border-bottom:2px solid transparent}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--text);font-weight:500}
+.nav-spacer{flex:1}
+.nav-search-wrap{display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-right:10px;background:var(--bg)}
+.nav-search-wrap:focus-within{border-color:var(--border2)}
+.nav-search-input{font-size:12px;border:none;background:transparent;padding:5px 10px;color:var(--text);width:180px;outline:none}
+.nav-search-input::placeholder{color:var(--text3)}
+.nav-search-btn{border:none;background:none;padding:5px 10px;color:var(--text2);cursor:pointer;font-size:14px;border-left:1px solid var(--border)}
+.nav-search-btn:hover{color:var(--text);background:var(--border)}
+.logout-btn{font-size:12px;color:var(--text3);border:1px solid var(--border);background:none;padding:4px 10px;border-radius:var(--radius)}
+.logout-btn:hover{color:var(--text)}
+
+.view{display:none;flex:1;overflow:hidden;flex-direction:column}
+.view.active{display:flex}
+
+/* LOGIN */
+.login-wrap{display:flex;flex:1;align-items:center;justify-content:center;background:var(--bg)}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:48px 40px;width:360px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.login-logo{font-family:'DM Mono',monospace;font-size:20px;font-weight:500}
+.login-sub{font-size:13px;color:var(--text2);line-height:1.6}
+.login-hr{width:100%;height:1px;background:var(--border)}
+.google-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 16px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);font-size:13px;color:var(--text);font-weight:500;justify-content:center}
+.google-btn:hover{background:var(--bg)}
+.google-icon{width:18px;height:18px;flex-shrink:0}
+.login-note{font-size:11px;color:var(--text3);line-height:1.6}
+
+/* CALENDAR */
+.cal-view{overflow-y:auto}
+.cal-inner{max-width:920px;margin:0 auto;padding:20px;width:100%}
+.cal-header{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.cal-nav{border:1px solid var(--border);background:var(--surface);color:var(--text);width:30px;height:30px;border-radius:var(--radius);font-size:16px;display:flex;align-items:center;justify-content:center}
+.cal-nav:hover{background:var(--bg)}
+.cal-month-btn{font-size:18px;font-weight:600;color:var(--text);border:none;background:none;padding:2px 8px;border-radius:var(--radius)}
+.cal-month-btn:hover{background:var(--border)}
+.cal-hdr-space{flex:1}
+.cal-today-btn{font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);padding:5px 12px;border-radius:var(--radius)}
+.cal-today-btn:hover{color:var(--text)}
+
+.cal-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;table-layout:fixed}
+.cal-table th{font-size:11px;font-weight:500;color:var(--text2);padding:8px 0;text-align:center;border-bottom:1px solid var(--border);background:var(--bg)}
+.cal-table th.sun{color:var(--red)}
+.cal-table th.sat{color:var(--blue)}
+.cal-table th.week-col{width:44px;font-size:10px;color:var(--text3)}
+/* 날짜 칸: height 고정, overflow hidden, display:block 내부 구조로 동그라미가 칸을 밀지 않도록 */
+.cal-table td{vertical-align:top;padding:5px 5px 3px;border:0.5px solid var(--border);cursor:pointer;height:90px;overflow:hidden}
+.cal-table td:hover{background:#F0EFE9}
+.cal-table td.today-cell{background:#FFF9F0}
+.cal-table td.selected-cell{background:#EDF4FF!important}
+.cal-table td.other-month{background:var(--bg);opacity:.4;pointer-events:none}
+.cal-table td.week-btn-cell{padding:0;cursor:pointer;width:44px;vertical-align:middle;background:var(--bg);text-align:center}
+.cal-table td.week-btn-cell:hover{background:#DDD9CE}
+/* 날짜 숫자 행: flex, 고정 높이 20px → 이슈칩이 아래로 밀리지 않음 */
+.day-hdr{display:flex;align-items:center;height:20px;margin-bottom:2px;flex-shrink:0}
+.day-num{font-size:12px;font-weight:500;color:var(--text);line-height:1}
+.day-num-circle{background:var(--text);color:var(--surface);width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;line-height:1;flex-shrink:0}
+.hol-name{font-size:9px;color:var(--red);font-weight:500;margin-left:3px;line-height:1}
+td.td-sun .day-num{color:var(--red)}
+td.td-sat .day-num{color:var(--blue)}
+td.td-hol .day-num{color:var(--red)!important}
+/* 이슈칩: 코드 + 제목 일부 */
+.issue-chip{font-size:9px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;cursor:pointer;color:#fff;font-weight:500;line-height:1.3}
+.issue-chip:hover{opacity:.8}
+.chip-more{font-size:9px;color:var(--text3);padding-left:2px;line-height:1}
+
+/* week button */
+.wk-btn-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:3px;padding:4px 0}
+.wk-num{font-size:11px;font-weight:600;color:var(--text2)}
+.wk-sub{font-size:8px;color:var(--text3);letter-spacing:.2px}
+
+/* JOURNAL BOX */
+.journal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-top:12px}
+.journal-box-label{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.journal-view-area{width:100%;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;background:var(--bg);color:var(--text);line-height:1.6;height:250px;overflow-y:auto;cursor:pointer;white-space:pre-wrap;word-break:break-all}
+.journal-view-area:hover{border-color:var(--border2)}
+.journal-view-area.empty{color:var(--text3);font-style:italic}
+.journal-reg-btn{font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text)}
+.journal-reg-btn:hover{background:var(--bg)}
+.btn-sm{font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text);transition:all .15s}
+.btn-sm:hover{background:var(--bg)}
+.btn-sm.primary{background:var(--text);color:var(--surface);border-color:var(--text)}
+.btn-sm.primary:hover{opacity:.85}
+.btn-sm.unsaved{color:#fff;border-color:var(--red);animation:pulse-red 1.2s ease-in-out infinite}
+@keyframes pulse-red{0%,100%{background:var(--red)}50%{background:#e88080}}
+
+/* AGENDA */
+.agenda-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-top:10px}
+.agenda-date-hdr{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.today-badge{font-size:10px;background:var(--text);color:var(--surface);padding:2px 8px;border-radius:20px;font-weight:400}
+.agenda-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--border);cursor:pointer}
+.agenda-item:last-child{border-bottom:none}
+.agenda-item:hover .agenda-title{color:var(--blue)}
+.agenda-chip{font-size:10px;padding:2px 7px;border-radius:3px;font-family:'DM Mono',monospace;font-weight:500;color:#fff;flex-shrink:0}
+.agenda-title{font-size:12px;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agenda-arrow{font-size:12px;color:var(--text3)}
+.status-badge{font-size:10px;padding:3px 9px;border-radius:20px;border:none;white-space:nowrap;flex-shrink:0;font-weight:500}
+.agenda-empty{font-size:12px;color:var(--text3);text-align:center;padding:1.5rem 0}
+
+/* REPORT */
+.report-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-top:12px}
+.report-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.report-title-txt{font-size:13px;font-weight:600;color:var(--text)}
+.report-gen-btn{font-size:12px;padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text2);display:flex;align-items:center;gap:5px}
+.report-gen-btn:hover{color:var(--text);border-color:var(--border2)}
+.report-content{font-size:13px;color:var(--text2);line-height:1.7;background:var(--bg);border-radius:var(--radius);padding:0}
+.report-textarea{width:100%;font-size:13px;color:var(--text2);line-height:1.7;background:var(--bg);border-radius:var(--radius);padding:12px 14px;border:none;resize:none;height:300px;font-family:'Noto Sans KR',sans-serif}
+.report-textarea:focus{outline:none;border:1px solid var(--border2);border-radius:var(--radius)}
+.report-empty{font-size:12px;color:var(--text3);text-align:center;padding:1.5rem 0}
+
+/* SEARCH VIEW */
+.search-view{overflow-y:auto}
+.search-inner{max-width:920px;margin:0 auto;padding:20px;width:100%}
+.search-bar-wrap{display:flex;gap:8px;margin-bottom:20px}
+.search-bar-input{flex:1;font-size:14px;border:1px solid var(--border);border-radius:var(--radius);padding:9px 14px;background:var(--surface);color:var(--text);outline:none}
+.search-bar-input:focus{border-color:var(--border2)}
+.search-bar-btn{font-size:13px;padding:9px 20px;border:none;border-radius:var(--radius);background:var(--text);color:var(--surface);white-space:nowrap}
+.search-bar-btn:hover{opacity:.85}
+.search-keyword{font-size:12px;color:var(--text3);margin-bottom:16px}
+.search-keyword strong{color:var(--text);font-weight:600}
+.search-section{margin-bottom:20px}
+.search-section-title{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.search-empty{font-size:13px;color:var(--text3);text-align:center;padding:3rem 0}
+.search-result-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:8px;cursor:pointer}
+.search-result-item:hover{border-color:var(--border2)}
+.sri-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.sri-date{font-size:11px;color:var(--text3);font-weight:500}
+.sri-chip{font-size:10px;padding:2px 7px;border-radius:3px;font-family:'DM Mono',monospace;font-weight:500;color:#fff;flex-shrink:0}
+.sri-title{font-size:13px;color:var(--text);font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sri-body{font-size:12px;color:var(--text2);line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sri-highlight{background:#FFF3CD;color:#856404;border-radius:2px;padding:0 2px}
+
+/* JOURNAL LIST */
+.jlist-view{overflow-y:auto}
+.jlist-inner{max-width:920px;margin:0 auto;padding:20px;width:100%}
+.jlist-load-btn{width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text3);border:none;background:none}
+.jlist-load-btn:hover{color:var(--text)}
+.jlist-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer}
+.jlist-item:hover{border-color:var(--border2)}
+.jlist-date{font-size:12px;font-weight:600;color:var(--text);margin-bottom:5px}
+.jlist-text{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px}
+.jlist-text.empty{color:var(--text3)}
+.issue-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:0.5px solid var(--border);cursor:pointer}
+.issue-row:hover .issue-row-title{color:var(--blue)}
+.issue-row-chip{font-size:10px;padding:2px 7px;border-radius:3px;font-family:'DM Mono',monospace;font-weight:500;color:#fff;flex-shrink:0;min-width:60px;text-align:center}
+.issue-row-title{font-size:12px;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s}
+.issue-row-status{font-size:10px;padding:2px 8px;border-radius:20px;color:#fff;font-weight:500;flex-shrink:0}
+.issue-row-arrow{font-size:12px;color:var(--text3)}
+
+/* JOURNAL DETAIL */
+.jdetail-view{overflow-y:auto}
+.jdetail-inner{max-width:920px;margin:0 auto;padding:20px;width:100%}
+.back-btn{display:flex;align-items:center;gap:6px;border:none;background:none;color:var(--text2);font-size:13px;padding:6px 0;margin-bottom:14px}
+.back-btn:hover{color:var(--text)}
+.jdetail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px}
+.jdetail-date{font-size:14px;font-weight:600;color:var(--text);margin-bottom:14px}
+.jdetail-textarea{width:100%;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;background:var(--bg);color:var(--text);line-height:1.6;height:450px}
+.jdetail-textarea:focus{outline:none;border-color:var(--border2)}
+.jdetail-actions{display:flex;justify-content:flex-end;align-items:center;margin-top:10px;gap:10px}
+.unsaved-hint{font-size:11px;color:var(--red);display:none;align-items:center;gap:4px;margin-right:auto}
+.jdetail-issues-section{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
+.jdetail-issues-label{font-size:11px;font-weight:500;color:var(--text3);margin-bottom:8px}
+
+/* TASK LIST */
+.task-view{overflow-y:auto}
+.task-inner{max-width:1100px;margin:0 auto;padding:20px;width:100%}
+.task-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap}
+.filter-chip{font-size:12px;padding:4px 12px;border:1px solid var(--border);border-radius:20px;background:none;color:var(--text2)}
+.filter-chip:hover{border-color:var(--border2);color:var(--text)}
+.filter-chip.active{background:var(--text);color:var(--surface);border-color:var(--text)}
+.add-task-btn{font-size:12px;padding:6px 14px;border:none;border-radius:var(--radius);background:var(--text);color:var(--surface);white-space:nowrap}
+.add-task-btn:hover{opacity:.85}
+.task-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;table-layout:fixed}
+.task-table th{font-size:11px;font-weight:500;color:var(--text2);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
+.task-table td{font-size:12px;padding:9px 10px;border-bottom:0.5px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-table tr:last-child td{border-bottom:none}
+.task-table tr:hover td{background:#F9F8F5;cursor:pointer}
+.priority-badge{font-size:11px;font-weight:500;padding:2px 8px;border-radius:3px;color:#fff;white-space:nowrap}
+.task-num-link{font-family:'DM Mono',monospace;font-size:11px;color:var(--blue);text-decoration:none;font-weight:500}
+.task-num-link:hover{text-decoration:underline}
+.task-num-plain{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)}
+
+/* ISSUE DETAIL */
+.detail-view{overflow-y:auto}
+.detail-inner{max-width:800px;margin:0 auto;padding:20px;width:100%}
+.detail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px}
+.detail-id-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.detail-id-input{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);border:none;background:transparent;padding:0;width:260px}
+.detail-id-input:focus{outline:none;border-bottom:1px solid var(--border2);color:var(--text)}
+.detail-title-input{width:100%;font-size:17px;font-weight:600;color:var(--text);border:none;background:transparent;padding:0;margin-bottom:18px;font-family:'Noto Sans KR',sans-serif;line-height:1.4}
+.detail-title-input:focus{outline:none;border-bottom:1px solid var(--border2)}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)}
+.detail-field{padding:10px 0;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:4px;padding-right:14px}
+.detail-field:nth-child(even){padding-left:14px;padding-right:0;border-left:1px solid var(--border)}
+.detail-field.full{grid-column:1/-1;padding-right:0}
+.field-label{font-size:11px;color:var(--text3);font-weight:500}
+.field-select{font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;background:var(--bg);color:var(--text)}
+.field-select:focus{outline:none;border-color:var(--border2)}
+.date-input{font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;background:var(--bg);color:var(--text);width:140px}
+.date-input:focus{outline:none;border-color:var(--border2)}
+.link-wrap{display:flex;align-items:center;gap:6px}
+.link-display{font-size:13px;color:var(--blue);text-decoration:none;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.link-display:hover{text-decoration:underline}
+.link-edit-btn{font-size:11px;color:var(--text3);border:1px solid var(--border);background:none;padding:2px 7px;border-radius:var(--radius);white-space:nowrap}
+.link-edit-btn:hover{color:var(--text)}
+.link-input{font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;background:var(--bg);color:var(--text);flex:1}
+.progress-textarea{width:100%;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;background:var(--bg);color:var(--text);line-height:1.6;min-height:280px}
+.progress-textarea:focus{outline:none;border-color:var(--border2)}
+.detail-save-row{display:flex;justify-content:flex-end;margin-top:10px;gap:6px}
+
+/* GANTT */
+.gantt-view{overflow:hidden}
+.gantt-scroll{flex:1;overflow:auto;padding:20px}
+.gantt-wrap{min-width:860px}
+.gantt-hdr-row{display:flex;border-bottom:2px solid var(--border);background:var(--bg)}
+.gantt-task-col{width:210px;min-width:210px;font-size:11px;color:var(--text2);padding:8px 12px;border-right:1px solid var(--border);font-weight:500}
+.gantt-day-hdr{font-size:9px;color:var(--text3);text-align:center;padding:3px 0;border-right:0.5px solid var(--border);flex:0 0 26px;min-width:26px}
+.gantt-day-hdr.td-sun,.gantt-day-hdr.hol{color:var(--red)}
+.gantt-day-hdr.td-sat{color:var(--blue)}
+.gantt-row{display:flex;border-bottom:0.5px solid var(--border);align-items:center;background:var(--surface);cursor:pointer}
+.gantt-row:hover{background:#F9F8F5}
+.gantt-task-info{width:210px;min-width:210px;padding:8px 12px;border-right:1px solid var(--border)}
+.gantt-task-id{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)}
+.gantt-task-name{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-day-cell{flex:0 0 26px;min-width:26px;height:38px;border-right:0.5px solid var(--border)}
+.gantt-day-cell.weekend{background:rgba(0,0,0,.03)}
+.gantt-bar{height:14px;border-radius:3px;position:absolute;top:12px;opacity:.85}
+.gantt-today-line{position:absolute;top:0;bottom:0;width:1.5px;background:var(--red);z-index:2;opacity:.5}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="view-login" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">worklog</div>
+      <p class="login-sub">업무일지 · 이슈 · 간트차트를<br>한 곳에서 관리하세요</p>
+      <div class="login-hr"></div>
+      <button class="google-btn" onclick="doLogin()">
+        <svg class="google-icon" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.131 17.64 11.823 17.64 9.2z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+        Google 계정으로 로그인
+      </button>
+      <p class="login-note">로그인 시 GitHub · Jira 연동 설정을 진행할 수 있습니다</p>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+  <div class="topnav">
+    <span class="logo">worklog</span>
+    <button class="tab-btn active" onclick="switchTab('calendar')">캘린더</button>
+    <button class="tab-btn" onclick="switchTab('journal')">업무일지</button>
+    <button class="tab-btn" onclick="switchTab('tasks')">업무목록</button>
+    <button class="tab-btn" onclick="switchTab('gantt')">간트차트</button>
+    <div class="nav-spacer"></div>
+    <div class="nav-search-wrap">
+      <input class="nav-search-input" id="nav-search-input" placeholder="일지·업무 검색" onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="nav-search-btn" onclick="doSearch()">🔍</button>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="view active cal-view" id="view-calendar">
+    <div class="cal-inner">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+        <button class="cal-month-btn" id="month-label" onclick="toggleMonthReport()">2026년 6월</button>
+        <button class="cal-nav" onclick="changeMonth(1)">›</button>
+        <div class="cal-hdr-space"></div>
+        <button class="cal-today-btn" onclick="goToday()">오늘</button>
+      </div>
+      <table class="cal-table">
+        <thead>
+          <tr>
+            <th class="sun">일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th class="sat">토</th>
+            <th class="week-col">주</th>
+          </tr>
+        </thead>
+        <tbody id="cal-body"></tbody>
+      </table>
+
+      <div class="journal-box" id="journal-box" style="display:none">
+        <div class="journal-box-label">
+          <span id="journal-box-label">2026년 6월 3일 업무일지</span>
+        </div>
+        <div class="journal-view-area" id="journal-view" onclick="goToJournalDetail()"></div>
+        <div id="journal-reg-wrap" style="display:none;margin-top:8px;text-align:right">
+          <button class="journal-reg-btn" onclick="goToJournalNew()">+ 업무일지 등록</button>
+        </div>
+      </div>
+
+      <div class="agenda-box" id="agenda-box" style="display:none">
+        <div class="agenda-date-hdr" id="agenda-date-hdr"></div>
+        <div id="agenda-list"></div>
+      </div>
+
+      <div class="report-box" id="month-report-box" style="display:none">
+        <div class="report-hdr">
+          <span class="report-title-txt" id="month-report-title">월간보고</span>
+          <button class="report-gen-btn" onclick="genReport('month')">✦ 월간보고 생성</button>
+        </div>
+        <div class="report-content" id="month-report-content"><textarea class="report-textarea" id="month-report-ta" placeholder="작성된 월간보고가 없습니다. 생성 버튼을 눌러 AI로 요약하거나 직접 입력하세요."></textarea></div>
+      </div>
+
+      <div class="report-box" id="week-report-box" style="display:none">
+        <div class="report-hdr">
+          <span class="report-title-txt" id="week-report-title">주간보고</span>
+          <button class="report-gen-btn" onclick="genReport('week')">✦ 주간보고 생성</button>
+        </div>
+        <div class="report-content" id="week-report-content"><textarea class="report-textarea" id="week-report-ta" placeholder="작성된 주간보고가 없습니다. 생성 버튼을 눌러 AI로 요약하거나 직접 입력하세요."></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH VIEW -->
+  <div class="view search-view" id="view-search">
+    <div class="search-inner">
+      <div class="search-bar-wrap">
+        <input class="search-bar-input" id="search-bar-input" placeholder="검색어를 입력하세요 (업무일지, 이슈코드, 이슈제목, 진행사항)" onkeydown="if(event.key==='Enter')doSearch()">
+        <button class="search-bar-btn" onclick="doSearch()">검색</button>
+      </div>
+      <div class="search-keyword" id="search-keyword" style="display:none"></div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+
+  <!-- JOURNAL LIST -->
+  <div class="view jlist-view" id="view-journal">
+    <div class="jlist-inner">
+      <button class="jlist-load-btn" onclick="loadMore('up')">↑ 이후 날짜 더 보기</button>
+      <div id="journal-entries"></div>
+      <button class="jlist-load-btn" onclick="loadMore('down')">↓ 이전 날짜 더 보기</button>
+    </div>
+  </div>
+
+  <!-- JOURNAL DETAIL -->
+  <div class="view jdetail-view" id="view-jdetail">
+    <div class="jdetail-inner">
+      <button class="back-btn" onclick="goBack()">← 업무일지 목록</button>
+      <div class="jdetail-card">
+        <div class="jdetail-date" id="jd-date"></div>
+        <div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:6px">업무일지</div>
+        <textarea class="jdetail-textarea" id="jd-textarea" placeholder="업무일지를 입력하세요..." oninput="onJournalEdit()"></textarea>
+        <div class="jdetail-actions">
+          <span class="unsaved-hint" id="unsaved-hint">● 저장되지 않은 변경사항</span>
+          <button class="btn-sm primary" id="jd-save-btn" onclick="saveJournalDetail()">저장</button>
+        </div>
+        <div class="jdetail-issues-section" id="jd-issues-section">
+          <div class="jdetail-issues-label">이 날의 업무 이슈</div>
+          <div id="jd-issues"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK LIST -->
+  <div class="view task-view" id="view-tasks">
+    <div class="task-inner">
+      <div class="task-topbar">
+        <div class="filter-bar">
+          <button class="filter-chip active" onclick="filterTask(this,'all')">전체</button>
+          <button class="filter-chip" onclick="filterTask(this,'진행중')">진행중</button>
+          <button class="filter-chip" onclick="filterTask(this,'진행예정')">진행예정</button>
+          <button class="filter-chip" onclick="filterTask(this,'테스트')">테스트</button>
+          <button class="filter-chip" onclick="filterTask(this,'완료')">완료</button>
+        </div>
+        <button class="add-task-btn" onclick="openNewTask()">+ 업무등록</button>
+      </div>
+      <table class="task-table">
+        <thead>
+          <tr>
+            <th style="width:60px">중요도</th>
+            <th style="width:88px">이슈번호</th>
+            <th>이슈제목</th>
+            <th style="width:92px">이슈등록일</th>
+            <th style="width:92px">완료목표일</th>
+            <th style="width:92px">개발시작일</th>
+            <th style="width:92px">운영배포일</th>
+            <th style="width:76px">상태</th>
+          </tr>
+        </thead>
+        <tbody id="task-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ISSUE DETAIL -->
+  <div class="view detail-view" id="view-detail">
+    <div class="detail-inner">
+      <button class="back-btn" id="detail-back-btn" onclick="goBack()">← 목록으로</button>
+      <div class="detail-card">
+        <div class="detail-id-row">
+          <input class="detail-id-input" id="d-id" placeholder="이슈코드 입력 (예: DAR-145)" />
+        </div>
+        <input class="detail-title-input" id="d-title" placeholder="이슈 제목을 입력하세요" />
+        <div class="detail-grid">
+          <div class="detail-field">
+            <span class="field-label">프로젝트</span>
+            <select class="field-select" id="d-project">
+              <option>DARWIN</option><option>API</option><option>WEB</option><option>OPS</option><option>기타</option>
+            </select>
+          </div>
+          <div class="detail-field">
+            <span class="field-label">중요도</span>
+            <select class="field-select" id="d-priority">
+              <option value="high">높음</option><option value="mid">중간</option><option value="low">낮음</option>
+            </select>
+          </div>
+          <div class="detail-field">
+            <span class="field-label">상태</span>
+            <select class="field-select" id="d-status">
+              <option>진행예정</option><option>진행중</option><option>테스트</option><option>완료</option><option>보류</option>
+            </select>
+          </div>
+          <div class="detail-field">
+            <span class="field-label">이슈 등록일</span>
+            <input type="date" class="date-input" id="d-created">
+          </div>
+          <div class="detail-field">
+            <span class="field-label">완료 목표일</span>
+            <input type="date" class="date-input" id="d-due">
+          </div>
+          <div class="detail-field">
+            <span class="field-label">개발 시작일</span>
+            <input type="date" class="date-input" id="d-devstart">
+          </div>
+          <div class="detail-field">
+            <span class="field-label">개발 완료일</span>
+            <input type="date" class="date-input" id="d-devend">
+          </div>
+          <div class="detail-field">
+            <span class="field-label">운영 배포일</span>
+            <input type="date" class="date-input" id="d-deploy">
+          </div>
+          <div class="detail-field full">
+            <span class="field-label">이슈 링크</span>
+            <div class="link-wrap" id="d-link-wrap">
+              <a class="link-display" id="d-link-display" href="#" target="_blank">링크 없음</a>
+              <button class="link-edit-btn" onclick="toggleLinkEdit()">수정</button>
+            </div>
+            <div class="link-wrap" id="d-link-edit" style="display:none">
+              <input class="link-input" id="d-link-input" type="url" placeholder="https://...">
+              <button class="link-edit-btn" onclick="saveLinkEdit()">확인</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="field-label" style="margin-bottom:6px">진행사항</div>
+          <textarea class="progress-textarea" id="d-progress" placeholder="진행 내용을 입력하세요..."></textarea>
+        </div>
+        <div class="detail-save-row">
+          <button class="btn-sm" onclick="goBack()">취소</button>
+          <button class="btn-sm primary">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GANTT -->
+  <div class="view gantt-view" id="view-gantt">
+    <div class="gantt-scroll">
+      <div class="gantt-wrap" id="gantt-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 색상 기준: 중요도 기반으로 전체 통일 ── */
+const P_COLOR={high:'#C94040',mid:'#D06A10',low:'#1F7A52'};
+const STATUS_STYLE={
+  '진행중':{bg:'#1F7A52',color:'#fff'},
+  '진행예정':{bg:'#D06A10',color:'#fff'},
+  '테스트':{bg:'#5E52B8',color:'#fff'},
+  '완료':{bg:'#888780',color:'#fff'},
+  '보류':{bg:'#C8C5BE',color:'#5F5E5A'}
+};
+const P_LABEL={high:'높음',mid:'중간',low:'낮음'};
+const HOLIDAYS={6:{6:'현충일'}};
+const DOW=['일','월','화','수','목','금','토'];
+
+let ISSUES=[
+  {id:'DAR-145',title:'로그인 버그 수정 - OAuth 토큰 만료 처리',status:'진행중',priority:'high',project:'DARWIN',created:'2026-05-20',due:'2026-06-10',devstart:'2026-06-01',devend:'',deploy:'',link:'https://jira.example.com/DAR-145',progress:'OAuth 토큰 만료 처리 로직 수정 중. 세션 갱신 시 race condition 발견.',dates:[1,2,3,4,5,8,9,10]},
+  {id:'API-08',title:'정산 스펙 정리 및 문서화',status:'진행중',priority:'mid',project:'API',created:'2026-05-25',due:'2026-06-15',devstart:'2026-06-02',devend:'',deploy:'',link:'',progress:'문서 초안 90% 완료.',dates:[2,3,9,16,23,30]},
+  {id:'WEB-03',title:'메인페이지 리뉴얼 - 퍼블리싱',status:'진행예정',priority:'mid',project:'WEB',created:'2026-06-01',due:'2026-06-30',devstart:'2026-06-04',devend:'',deploy:'',link:'',progress:'',dates:[4,5,11,12,19,24]},
+  {id:'DAR-160',title:'코드리뷰 - 결제모듈 리팩토링',status:'진행예정',priority:'low',project:'DARWIN',created:'2026-06-02',due:'2026-06-07',devstart:'2026-06-03',devend:'',deploy:'',link:'https://jira.example.com/DAR-160',progress:'',dates:[3,5,8,10,15,17,22,25,26]},
+  {id:'OPS-12',title:'서버 점검 및 성능 최적화',status:'테스트',priority:'high',project:'OPS',created:'2026-05-15',due:'2026-06-05',devstart:'2026-05-20',devend:'2026-06-04',deploy:'',link:'',progress:'점검 완료. 배포 대기 중.',dates:[3,11,17,26]},
+];
+const JOURNALS={
+  '2026-06-03':'OAuth 토큰 만료 처리 로직 수정. 팀 미팅에서 6/10 배포 일정 조율 완료.',
+  '2026-06-02':'정산 스펙 문서 초안 작성. DAR-145 디버깅 시작. race condition 원인 파악.',
+  '2026-06-01':'개발 환경 세팅 완료. WEB-03 기획서 검토 및 피드백 전달.',
+  '2026-05-31':'주간 스프린트 회의. OPS-12 점검 결과 공유.',
+  '2026-05-30':'DAR-145 이슈 재현 확인. 로그 분석 진행.',
+};
+
+let curYear=2026,curMonth=6,selDate=null,prevTab='calendar',bottomMode='none';
+let jdOriginal='',jdDirty=false,curSelDateKey='';
+
+/* 이슈칩 색상: 중요도 기준 */
+function chipColor(iss){return P_COLOR[iss.priority]||P_COLOR.mid;}
+function issuesForDate(d){return ISSUES.filter(i=>i.dates&&i.dates.includes(d));}
+
+function doLogin(){
+  document.getElementById('view-login').style.display='none';
+  document.getElementById('main-app').style.display='flex';
+  history.replaceState({tab:'calendar'},'','#calendar');
+  renderCalendar();renderJournalList();renderTaskList();renderGantt();selectDate(3);
+}
+function doLogout(){
+  document.getElementById('view-login').style.display='flex';
+  document.getElementById('main-app').style.display='none';
+}
+
+function switchTab(t,skipHistory){
+  ['calendar','journal','jdetail','tasks','detail','gantt','search'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    if(el){el.style.display='none';el.classList.remove('active');}
+  });
+  const el=document.getElementById('view-'+t);
+  if(el){el.style.display='flex';el.classList.add('active');}
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active',['calendar','journal','tasks','gantt'][i]===t);
+  });
+  if(!['detail','jdetail','search'].includes(t))prevTab=t;
+  /* 검색 탭 아닐 때 검색창 초기화 */
+  if(t!=='search'){
+    document.getElementById('nav-search-input').value='';
+    document.getElementById('search-bar-input').value='';
+    document.getElementById('search-keyword').style.display='none';
+    document.getElementById('search-results').innerHTML='';
+  }
+  /* 브라우저 히스토리 */
+  if(!skipHistory){
+    history.pushState({tab:t},'',`#${t}`);
+  }
+}
+function goBack(){switchTab(prevTab);}
+
+window.addEventListener('popstate',e=>{
+  const t=(e.state&&e.state.tab)||(location.hash.replace('#','')||'calendar');
+  switchTab(t,true);
+});
+
+function openDetail(issueId,fromGantt){
+  const iss=ISSUES.find(i=>i.id===issueId);if(!iss)return;
+  fillDetailForm(iss);
+  const btn=document.getElementById('detail-back-btn');
+  if(fromGantt){btn.textContent='← 간트차트로';btn.onclick=()=>switchTab('gantt');}
+  else{btn.textContent='← 목록으로';btn.onclick=goBack;}
+  switchTab('detail');
+}
+function openNewTask(){
+  fillDetailForm(null);
+  const btn=document.getElementById('detail-back-btn');
+  btn.textContent='← 목록으로';btn.onclick=goBack;
+  prevTab='tasks';switchTab('detail');
+}
+function fillDetailForm(iss){
+  document.getElementById('d-id').value=iss?iss.id:'';
+  document.getElementById('d-title').value=iss?iss.title:'';
+  document.getElementById('d-project').value=iss?iss.project:'DARWIN';
+  document.getElementById('d-priority').value=iss?iss.priority:'mid';
+  document.getElementById('d-status').value=iss?iss.status:'진행예정';
+  document.getElementById('d-created').value=iss?iss.created:'';
+  document.getElementById('d-due').value=iss?iss.due:'';
+  document.getElementById('d-devstart').value=iss?iss.devstart:'';
+  document.getElementById('d-devend').value=iss?iss.devend:'';
+  document.getElementById('d-deploy').value=iss?iss.deploy:'';
+  document.getElementById('d-progress').value=iss?iss.progress:'';
+  const link=iss?iss.link:'';
+  const disp=document.getElementById('d-link-display');
+  if(link){disp.textContent=link;disp.href=link;}
+  else{disp.textContent='링크 없음';disp.href='#';}
+  document.getElementById('d-link-input').value=link||'';
+  document.getElementById('d-link-wrap').style.display='flex';
+  document.getElementById('d-link-edit').style.display='none';
+}
+function toggleLinkEdit(){
+  document.getElementById('d-link-wrap').style.display='none';
+  document.getElementById('d-link-edit').style.display='flex';
+}
+function saveLinkEdit(){
+  const val=document.getElementById('d-link-input').value.trim();
+  const disp=document.getElementById('d-link-display');
+  disp.textContent=val||'링크 없음';disp.href=val||'#';
+  document.getElementById('d-link-wrap').style.display='flex';
+  document.getElementById('d-link-edit').style.display='none';
+}
+
+/* ── CALENDAR ── */
+function renderCalendar(){
+  const tbody=document.getElementById('cal-body');tbody.innerHTML='';
+  const firstDay=new Date(curYear,curMonth-1,1).getDay();
+  const daysInMonth=new Date(curYear,curMonth,0).getDate();
+  let d=1,wk=0;
+  while(d<=daysInMonth){
+    const tr=document.createElement('tr');
+    for(let dow=0;dow<7;dow++){
+      const td=document.createElement('td');
+      const blank=(wk===0&&dow<firstDay);
+      if(!blank&&d<=daysInMonth){
+        const dd=d;
+        const isToday=(curYear===2026&&curMonth===6&&dd===3);
+        const hol=HOLIDAYS[curMonth]&&HOLIDAYS[curMonth][dd];
+        if(dow===0)td.classList.add('td-sun');
+        if(dow===6)td.classList.add('td-sat');
+        if(isToday)td.classList.add('today-cell');
+        if(dd===selDate)td.classList.add('selected-cell');
+        if(hol)td.classList.add('td-hol');
+        td.onclick=()=>selectDate(dd);
+        const hdrDiv=document.createElement('div');hdrDiv.className='day-hdr';
+        if(isToday){
+          const circ=document.createElement('span');circ.className='day-num-circle';circ.textContent=dd;hdrDiv.appendChild(circ);
+        } else {
+          const num=document.createElement('span');num.className='day-num';num.textContent=dd;hdrDiv.appendChild(num);
+        }
+        if(hol){const hn=document.createElement('span');hn.className='hol-name';hn.textContent=hol;hdrDiv.appendChild(hn);}
+        td.appendChild(hdrDiv);
+
+        /* 이슈칩: 중요도 컬러, 코드+제목 일부 */
+        const issues=issuesForDate(dd);
+        issues.slice(0,3).forEach(iss=>{
+          const chip=document.createElement('div');chip.className='issue-chip';
+          chip.style.background=chipColor(iss);
+          const shortTitle=iss.title.length>14?iss.title.slice(0,14)+'…':iss.title;
+          chip.textContent=iss.id+' '+shortTitle;
+          chip.title=iss.title;
+          chip.onclick=(e)=>{e.stopPropagation();prevTab='calendar';openDetail(iss.id);};
+          td.appendChild(chip);
+        });
+        if(issues.length>3){const m=document.createElement('div');m.className='chip-more';m.textContent=`+${issues.length-3}`;td.appendChild(m);}
+        d++;
+      } else if(blank){
+        td.classList.add('other-month');
+      } else {
+        td.classList.add('other-month');d++;
+      }
+      tr.appendChild(td);
+    }
+    /* 주차 버튼 */
+    const wkTd=document.createElement('td');wkTd.className='week-btn-cell';
+    wkTd.innerHTML=`<div class="wk-btn-inner"><div class="wk-num">W${wk+1}</div><div class="wk-sub">주간보고</div></div>`;
+    wkTd.onclick=()=>showWeekReport(wk);
+    tr.appendChild(wkTd);
+    tbody.appendChild(tr);wk++;
+  }
+}
+
+function selectDate(d){
+  selDate=d;bottomMode='agenda';
+  curSelDateKey=`${curYear}-${String(curMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  ['month-report-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('journal-box').style.display='block';
+  document.getElementById('agenda-box').style.display='block';
+  const dow=new Date(curYear,curMonth-1,d).getDay();
+  const isToday=curYear===2026&&curMonth===6&&d===3;
+  document.getElementById('journal-box-label').textContent=`${curYear}년 ${curMonth}월 ${d}일 업무일지`;
+  const text=JOURNALS[curSelDateKey]||'';
+  const viewEl=document.getElementById('journal-view');
+  const regWrap=document.getElementById('journal-reg-wrap');
+  if(text){
+    viewEl.textContent=text;
+    viewEl.classList.remove('empty');
+    viewEl.style.display='block';
+    regWrap.style.display='none';
+  } else {
+    viewEl.textContent='작성된 업무일지가 없습니다.';
+    viewEl.classList.add('empty');
+    viewEl.style.display='block';
+    regWrap.style.display='block';
+  }
+  document.getElementById('agenda-date-hdr').innerHTML=`${curMonth}월 ${d}일 (${DOW[dow]}) ${isToday?'<span class="today-badge">오늘</span>':''}`;
+  const list=document.getElementById('agenda-list');list.innerHTML='';
+  const issues=issuesForDate(d);
+  if(!issues.length){list.innerHTML='<div class="agenda-empty">등록된 업무가 없습니다</div>';renderCalendar();return;}
+  issues.forEach(iss=>{
+    const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
+    const item=document.createElement('div');item.className='agenda-item';
+    item.innerHTML=`<div class="agenda-chip" style="background:${chipColor(iss)}">${iss.id}</div>
+    <div class="agenda-title">${iss.title}</div>
+    <div class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</div>
+    <div class="agenda-arrow">›</div>`;
+    item.onclick=()=>{prevTab='calendar';openDetail(iss.id);};
+    list.appendChild(item);
+  });
+  renderCalendar();
+}
+
+function goToJournalDetail(){
+  if(!curSelDateKey)return;
+  const text=JOURNALS[curSelDateKey];
+  if(!text)return;
+  prevTab='calendar';
+  openJournalDetail(curSelDateKey);
+}
+function goToJournalNew(){
+  if(!curSelDateKey)return;
+  prevTab='calendar';
+  openJournalDetail(curSelDateKey,true);
+}
+
+function hideBottom(){
+  bottomMode='none';selDate=null;
+  ['journal-box','agenda-box','month-report-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
+  renderCalendar();
+}
+function toggleMonthReport(){
+  if(bottomMode==='month'){bottomMode='none';document.getElementById('month-report-box').style.display='none';return;}
+  bottomMode='month';
+  ['agenda-box','journal-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('month-report-box').style.display='block';
+  document.getElementById('month-report-title').textContent=`${curYear}년 ${curMonth}월 월간보고`;
+}
+function showWeekReport(idx){
+  bottomMode='week';
+  ['agenda-box','journal-box','month-report-box'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('week-report-box').style.display='block';
+  document.getElementById('week-report-title').textContent=`${curMonth}월 ${idx+1}주차 주간보고`;
+}
+function genReport(type){
+  const taId=type==='month'?'month-report-ta':'week-report-ta';
+  const ta=document.getElementById(taId);
+  ta.value='AI가 보고서를 생성하고 있습니다...';
+  setTimeout(()=>{
+    ta.value=type==='month'
+      ?'2026년 6월 월간보고\n\n이번 달 총 5건의 업무 이슈가 진행되었습니다. DAR-145 로그인 버그는 OAuth 토큰 처리 로직을 수정 완료하고 QA 단계에 진입했으며, API-08 정산 스펙은 문서화가 90% 완료되었습니다. WEB-03 메인페이지 리뉴얼은 일정대로 진행 중이며, OPS-12 서버 점검은 성공적으로 마무리되어 운영 배포를 앞두고 있습니다.'
+      :'주간보고\n\n주요 업무: DAR-145 버그 수정 진행, API-08 스펙 정리 완료, WEB-03 퍼블리싱 착수. 이슈사항: DAR-160 코드리뷰 일정 조율 필요. 다음 주 계획: 배포 테스트 및 OPS-12 운영 배포 예정.';
+  },1200);
+}
+function changeMonth(dir){
+  curMonth+=dir;
+  if(curMonth>12){curMonth=1;curYear++;}
+  if(curMonth<1){curMonth=12;curYear--;}
+  document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;
+  selDate=null;bottomMode='none';
+  ['month-report-box','week-report-box','agenda-box','journal-box'].forEach(id=>document.getElementById(id).style.display='none');
+  renderCalendar();
+}
+function goToday(){curYear=2026;curMonth=6;document.getElementById('month-label').textContent='2026년 6월';renderCalendar();selectDate(3);}
+
+/* ── JOURNAL LIST ── */
+function renderJournalList(){
+  const el=document.getElementById('journal-entries');el.innerHTML='';
+  const dates=['2026-06-03','2026-06-02','2026-06-01','2026-05-31','2026-05-30'];
+  dates.forEach(dt=>{
+    const d=new Date(dt);const parts=dt.split('-');
+    const issues=ISSUES.filter(i=>i.dates&&i.dates.includes(parseInt(parts[2]))&&parseInt(parts[1])===6);
+    const text=JOURNALS[dt];
+    const item=document.createElement('div');item.className='jlist-item';
+    item.onclick=()=>openJournalDetail(dt);
+    let issHtml='';
+    if(issues.length){
+      issHtml=`<div style="margin-top:2px">${issues.map(i=>{
+        const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
+        return `<div class="issue-row">
+          <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
+          <div class="issue-row-title">${i.title}</div>
+          <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
+          <div class="issue-row-arrow">›</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+    item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
+    <div class="jlist-text${text?'':' empty'}">${text||'작성된 일지가 없습니다.'}</div>${issHtml}`;
+    el.appendChild(item);
+  });
+}
+function loadMore(dir){alert(dir==='up'?'이후 날짜를 로딩합니다...':'이전 날짜를 로딩합니다...');}
+
+/* ── JOURNAL DETAIL ── */
+function openJournalDetail(dt,isNew){
+  const d=new Date(dt);
+  document.getElementById('jd-date').textContent=`${dt} (${DOW[d.getDay()]})`;
+  const text=isNew?'':(JOURNALS[dt]||'');
+  const ta=document.getElementById('jd-textarea');ta.value=text;
+  jdOriginal=text;jdDirty=false;
+  document.getElementById('jd-save-btn').className='btn-sm primary';
+  document.getElementById('unsaved-hint').style.display='none';
+  /* 이슈 목록 */
+  const parts=dt.split('-');
+  const issues=ISSUES.filter(i=>i.dates&&i.dates.includes(parseInt(parts[2]))&&parseInt(parts[1])===6);
+  const issBox=document.getElementById('jd-issues');issBox.innerHTML='';
+  const sec=document.getElementById('jd-issues-section');
+  sec.style.display=issues.length?'block':'none';
+  issues.forEach(iss=>{
+    const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
+    const row=document.createElement('div');row.className='issue-row';
+    row.innerHTML=`<div class="issue-row-chip" style="background:${chipColor(iss)}">${iss.id}</div>
+    <div class="issue-row-title">${iss.title}</div>
+    <div class="issue-row-status" style="background:${s.bg}">${iss.status}</div>
+    <div class="issue-row-arrow">›</div>`;
+    row.onclick=()=>{prevTab='jdetail';openDetail(iss.id);};
+    issBox.appendChild(row);
+  });
+  prevTab='journal';switchTab('jdetail');
+}
+function onJournalEdit(){
+  const ta=document.getElementById('jd-textarea');
+  jdDirty=ta.value!==jdOriginal;
+  const btn=document.getElementById('jd-save-btn');
+  const hint=document.getElementById('unsaved-hint');
+  if(jdDirty){btn.className='btn-sm unsaved';btn.textContent='저장';hint.style.display='inline-flex';}
+  else{btn.className='btn-sm primary';btn.textContent='저장';hint.style.display='none';}
+}
+function saveJournalDetail(){
+  jdOriginal=document.getElementById('jd-textarea').value;jdDirty=false;
+  const btn=document.getElementById('jd-save-btn');
+  btn.className='btn-sm primary';btn.textContent='저장';
+  document.getElementById('unsaved-hint').style.display='none';
+}
+
+/* ── TASK LIST ── */
+function renderTaskList(filter='all'){
+  const tbody=document.getElementById('task-tbody');tbody.innerHTML='';
+  const list=filter==='all'?ISSUES:ISSUES.filter(i=>i.status===filter);
+  list.forEach(iss=>{
+    const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
+    const tr=document.createElement('tr');
+    tr.onclick=()=>{prevTab='tasks';openDetail(iss.id);};
+    const numCell=iss.link
+      ?`<a class="task-num-link" href="${iss.link}" target="_blank" onclick="event.stopPropagation()">${iss.id}</a>`
+      :`<span class="task-num-plain">${iss.id}</span>`;
+    tr.innerHTML=`<td><span class="priority-badge" style="background:${P_COLOR[iss.priority]}">${P_LABEL[iss.priority]||'중간'}</span></td>
+    <td>${numCell}</td>
+    <td style="font-size:12px;color:var(--text)">${iss.title}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.created||'—'}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.due||'—'}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.devstart||'—'}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.deploy||'—'}</td>
+    <td><span class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function filterTask(btn,f){
+  document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderTaskList(f);
+}
+
+/* ── SEARCH ── */
+function doSearch(){
+  const navInput=document.getElementById('nav-search-input');
+  const barInput=document.getElementById('search-bar-input');
+  const kw=(navInput.value||barInput.value).trim();
+  if(!kw)return;
+  navInput.value=kw;
+  barInput.value=kw;
+  switchTab('search');
+  const kwEl=document.getElementById('search-keyword');
+  kwEl.style.display='block';
+  kwEl.innerHTML=`<strong>"${kw}"</strong> 검색 결과`;
+  const lower=kw.toLowerCase();
+  const wrap=document.getElementById('search-results');
+  wrap.innerHTML='';
+
+  function highlight(text){
+    if(!text)return '';
+    return text.replace(new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<span class="sri-highlight">$1</span>');
+  }
+
+  /* 업무일지 검색 */
+  const dailyHits=Object.entries(JOURNALS).filter(([,v])=>v.toLowerCase().includes(lower));
+  const dailyEl=document.createElement('div');dailyEl.className='search-section';
+  dailyEl.innerHTML=`<div class="search-section-title">업무일지 (${dailyHits.length})</div>`;
+  if(!dailyHits.length){
+    dailyEl.innerHTML+=`<div style="font-size:12px;color:var(--text3);padding:8px 0">검색 결과 없음</div>`;
+  } else {
+    dailyHits.forEach(([dt,content])=>{
+      const d=new Date(dt);
+      const item=document.createElement('div');item.className='search-result-item';
+      item.innerHTML=`<div class="sri-top">
+        <span class="sri-date">${dt} (${DOW[d.getDay()]})</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:3px;background:#E8E6E0;color:var(--text2)">업무일지</span>
+      </div>
+      <div class="sri-body">${highlight(content)}</div>`;
+      item.onclick=()=>openJournalDetail(dt);
+      dailyEl.appendChild(item);
+    });
+  }
+  wrap.appendChild(dailyEl);
+
+  /* 이슈 검색 */
+  const issueHits=ISSUES.filter(i=>
+    i.id.toLowerCase().includes(lower)||
+    i.title.toLowerCase().includes(lower)||
+    (i.progress&&i.progress.toLowerCase().includes(lower))
+  );
+  const issueEl=document.createElement('div');issueEl.className='search-section';
+  issueEl.innerHTML=`<div class="search-section-title">업무 이슈 (${issueHits.length})</div>`;
+  if(!issueHits.length){
+    issueEl.innerHTML+=`<div style="font-size:12px;color:var(--text3);padding:8px 0">검색 결과 없음</div>`;
+  } else {
+    issueHits.forEach(iss=>{
+      const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
+      const item=document.createElement('div');item.className='search-result-item';
+      item.innerHTML=`<div class="sri-top">
+        <span class="sri-chip" style="background:${chipColor(iss)}">${iss.id}</span>
+        <span class="sri-title">${highlight(iss.title)}</span>
+        <span class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</span>
+      </div>
+      ${iss.progress?`<div class="sri-body">${highlight(iss.progress)}</div>`:''}`;
+      item.onclick=()=>{prevTab='search';openDetail(iss.id);};
+      issueEl.appendChild(item);
+    });
+  }
+  wrap.appendChild(issueEl);
+
+  if(!dailyHits.length&&!issueHits.length){
+    wrap.innerHTML=`<div class="search-empty">검색 결과가 없습니다</div>`;
+  }
+}
+
+/* ── GANTT ── */
+function renderGantt(){
+  const wrap=document.getElementById('gantt-wrap');
+  const days=Array.from({length:30},(_,i)=>i+1);
+  const todayD=3;const cw=26;
+  let html=`<div style="display:flex;flex-direction:column">`;
+  html+=`<div class="gantt-hdr-row"><div class="gantt-task-col">업무</div><div style="display:flex">`;
+  days.forEach(d=>{
+    const dow=new Date(2026,5,d).getDay();const hol=HOLIDAYS[6]&&HOLIDAYS[6][d];
+    html+=`<div class="gantt-day-hdr${dow===0||hol?' td-sun':dow===6?' td-sat':''}">${d}</div>`;
+  });
+  html+=`</div></div>`;
+  ISSUES.forEach(iss=>{
+    const c=chipColor(iss);
+    const minD=Math.min(...iss.dates),maxD=Math.max(...iss.dates);
+    const barL=(minD-1)*cw,barW=(maxD-minD+1)*cw;
+    html+=`<div class="gantt-row" onclick="openDetail('${iss.id}',true)">
+    <div class="gantt-task-info"><div class="gantt-task-id">${iss.id}</div><div class="gantt-task-name">${iss.title}</div></div>
+    <div style="flex:1;position:relative;height:38px;display:flex">
+      ${days.map(d=>{const dow=new Date(2026,5,d).getDay();const hol=HOLIDAYS[6]&&HOLIDAYS[6][d];return `<div class="gantt-day-cell${dow===0||dow===6||hol?' weekend':''}"></div>`;}).join('')}
+      <div class="gantt-bar" style="left:${barL}px;width:${barW}px;background:${c}"></div>
+      <div class="gantt-today-line" style="left:${(todayD-1)*cw+cw/2}px"></div>
+    </div></div>`;
+  });
+  html+=`</div>`;wrap.innerHTML=html;
+}
+</script>
+</body>
+</html>
