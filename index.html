@@ -545,7 +545,6 @@ let accessToken='';
 let tokenClient=null;
 
 function handleGoogleLogin(response){
-  /* ID 토큰 받은 후 access token 요청 */
   tokenClient=google.accounts.oauth2.initTokenClient({
     client_id:CLIENT_ID,
     scope:SCOPES,
@@ -555,7 +554,8 @@ function handleGoogleLogin(response){
       startApp();
     }
   });
-  tokenClient.requestAccessToken({prompt:''});
+  /* 이미 동의한 경우 팝업 없이 발급, 처음이면 동의 화면 표시 */
+  tokenClient.requestAccessToken({prompt:'none',hint:response.credential?JSON.parse(atob(response.credential.split('.')[1])).email:''});
 }
 
 function startApp(){
