@@ -610,27 +610,25 @@ const P_LABEL={high:'높음',mid:'중간',low:'낮음'};
 const HOLIDAYS={6:{6:'현충일'}};
 const DOW=['일','월','화','수','목','금','토'];
 
-let ISSUES=[
-  {id:'DAR-145',title:'로그인 버그 수정 - OAuth 토큰 만료 처리',status:'진행중',priority:'high',project:'DARWIN',created:'2026-05-20',due:'2026-06-10',devstart:'2026-06-01',devend:'',deploy:'',link:'https://jira.example.com/DAR-145',progress:'OAuth 토큰 만료 처리 로직 수정 중. 세션 갱신 시 race condition 발견.',dates:[1,2,3,4,5,8,9,10]},
-  {id:'API-08',title:'정산 스펙 정리 및 문서화',status:'진행중',priority:'mid',project:'API',created:'2026-05-25',due:'2026-06-15',devstart:'2026-06-02',devend:'',deploy:'',link:'',progress:'문서 초안 90% 완료.',dates:[2,3,9,16,23,30]},
-  {id:'WEB-03',title:'메인페이지 리뉴얼 - 퍼블리싱',status:'진행예정',priority:'mid',project:'WEB',created:'2026-06-01',due:'2026-06-30',devstart:'2026-06-04',devend:'',deploy:'',link:'',progress:'',dates:[4,5,11,12,19,24]},
-  {id:'DAR-160',title:'코드리뷰 - 결제모듈 리팩토링',status:'진행예정',priority:'low',project:'DARWIN',created:'2026-06-02',due:'2026-06-07',devstart:'2026-06-03',devend:'',deploy:'',link:'https://jira.example.com/DAR-160',progress:'',dates:[3,5,8,10,15,17,22,25,26]},
-  {id:'OPS-12',title:'서버 점검 및 성능 최적화',status:'테스트',priority:'high',project:'OPS',created:'2026-05-15',due:'2026-06-05',devstart:'2026-05-20',devend:'2026-06-04',deploy:'',link:'',progress:'점검 완료. 배포 대기 중.',dates:[3,11,17,26]},
-];
-const JOURNALS={
-  '2026-06-03':'OAuth 토큰 만료 처리 로직 수정. 팀 미팅에서 6/10 배포 일정 조율 완료.',
-  '2026-06-02':'정산 스펙 문서 초안 작성. DAR-145 디버깅 시작. race condition 원인 파악.',
-  '2026-06-01':'개발 환경 세팅 완료. WEB-03 기획서 검토 및 피드백 전달.',
-  '2026-05-31':'주간 스프린트 회의. OPS-12 점검 결과 공유.',
-  '2026-05-30':'DAR-145 이슈 재현 확인. 로그 분석 진행.',
-};
+let ISSUES=[];
+const JOURNALS={};
 
-let curYear=2026,curMonth=6,selDate=null,prevTab='calendar',bottomMode='none';
+let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none';
 let jdOriginal='',jdDirty=false,curSelDateKey='';
 
 /* 이슈칩 색상: 중요도 기준 */
 function chipColor(iss){return P_COLOR[iss.priority]||P_COLOR.mid;}
-function issuesForDate(d){return ISSUES.filter(i=>i.dates&&i.dates.includes(d));}
+
+/* 날짜 기준 이슈 조회: DEV_START <= D AND (PROD_DATE >= D OR TARGET_DATE >= D) */
+function issuesForDate(d){
+  const dateStr=`${curYear}-${String(curMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return ISSUES.filter(i=>{
+    if(!i.devStart||i.useYn==='N')return false;
+    const endDate=i.prodDate||i.targetDate;
+    if(!endDate)return false;
+    return i.devStart<=dateStr&&endDate>=dateStr;
+  });
+}
 
 const CLIENT_ID='603081180385-5dmfebn8mm239lod4solqkig2molj886.apps.googleusercontent.com';
 const SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
@@ -711,16 +709,22 @@ async function startApp(){
   document.getElementById('view-login').style.display='none';
   document.getElementById('main-app').style.display='flex';
   history.replaceState({tab:'calendar'},'','#calendar');
+  /* 기존 데이터 초기화 */
+  ISSUES=[];
+  Object.keys(JOURNALS).forEach(k=>delete JOURNALS[k]);
   /* 실제 데이터 로드 */
   try{
     const [issues,dailies]=await Promise.all([issueLoad(),dailyLoad()]);
     ISSUES=issues;
     dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
   }catch(e){console.error('데이터 로드 실패',e);}
+  /* 오늘 날짜 기준으로 캘린더 */
+  const today=new Date();
+  curYear=today.getFullYear();
+  curMonth=today.getMonth()+1;
+  document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;
   renderCalendar();renderJournalList();renderTaskList();renderGantt();
-  const today=todayStr();
-  const d=parseInt(today.split('-')[2]);
-  selectDate(d);
+  selectDate(today.getDate());
 }
 
 function doLogout(){
