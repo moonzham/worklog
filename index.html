@@ -479,7 +479,7 @@ td.td-hol .day-num{color:var(--red)!important}
         </div>
         <div class="detail-save-row">
           <button class="btn-sm" onclick="goBack()">취소</button>
-          <button class="btn-sm primary">저장</button>
+          <button class="btn-sm primary" onclick="saveIssueDetail()">저장</button>
         </div>
       </div>
     </div>
@@ -494,7 +494,110 @@ td.td-hol .day-num{color:var(--red)!important}
 </div>
 
 <script>
-/* ── 색상 기준: 중요도 기반으로 전체 통일 ── */
+/* ── DAILY CRUD ── */
+async function dailyLoad(){
+  try{
+    const data=await sheetsGet('DAILY!A2:E');
+    return (data.values||[]).filter(r=>r[2]!=='N').map(r=>({
+      date:r[0]||'',content:r[1]||'',useYn:r[2]||'Y',createdAt:r[3]||'',updatedAt:r[4]||''
+    }));
+  }catch(e){console.error('dailyLoad',e);return[];}
+}
+async function dailySave(date,content){
+  const rows=await sheetsGet('DAILY!A2:E');
+  const vals=rows.values||[];
+  const idx=vals.findIndex(r=>r[0]===date);
+  const now=nowStr();
+  if(idx>=0){
+    await sheetsUpdate(`DAILY!A${idx+2}:E${idx+2}`,[[date,content,'Y',vals[idx][3]||now,now]]);
+  } else {
+    await sheetsAppend('DAILY!A:E',[[date,content,'Y',now,now]]);
+  }
+}
+
+/* ── ISSUE CRUD ── */
+async function issueLoad(){
+  try{
+    const data=await sheetsGet('ISSUE!A2:O');
+    return (data.values||[]).filter(r=>r[12]!=='N').map(r=>({
+      id:r[0]||'',project:r[1]||'',title:r[2]||'',priority:r[3]||'mid',
+      status:r[4]||'진행예정',link:r[5]||'',issueRegDate:r[6]||'',
+      targetDate:r[7]||'',devStart:r[8]||'',devEnd:r[9]||'',
+      prodDate:r[10]||'',progressNote:r[11]||'',useYn:r[12]||'Y',
+      createdAt:r[13]||'',updatedAt:r[14]||''
+    }));
+  }catch(e){console.error('issueLoad',e);return[];}
+}
+async function issueSave(iss,isNew){
+  const now=nowStr();
+  if(isNew){
+    await sheetsAppend('ISSUE!A:O',[[
+      iss.id,iss.project,iss.title,iss.priority,iss.status,iss.link,
+      iss.issueRegDate,iss.targetDate,iss.devStart,iss.devEnd,iss.prodDate,
+      iss.progressNote,'Y',now,now
+    ]]);
+  } else {
+    const rows=await sheetsGet('ISSUE!A2:O');
+    const vals=rows.values||[];
+    const idx=vals.findIndex(r=>r[0]===iss.id);
+    if(idx>=0){
+      await sheetsUpdate(`ISSUE!A${idx+2}:O${idx+2}`,[[
+        iss.id,iss.project,iss.title,iss.priority,iss.status,iss.link,
+        iss.issueRegDate,iss.targetDate,iss.devStart,iss.devEnd,iss.prodDate,
+        iss.progressNote,'Y',vals[idx][13]||now,now
+      ]]);
+    }
+  }
+}
+async function issueDelete(issueId){
+  const rows=await sheetsGet('ISSUE!A2:O');
+  const vals=rows.values||[];
+  const idx=vals.findIndex(r=>r[0]===issueId);
+  if(idx>=0){
+    const now=nowStr();
+    await sheetsUpdate(`ISSUE!M${idx+2}:O${idx+2}`,[['N',vals[idx][13]||now,now]]);
+  }
+}
+
+/* ── WEEKLY CRUD ── */
+async function weeklySave(yearWeekKey,content){
+  const rows=await sheetsGet('WEEKLY!A2:E');
+  const vals=rows.values||[];
+  const idx=vals.findIndex(r=>r[0]===yearWeekKey);
+  const now=nowStr();
+  if(idx>=0){
+    await sheetsUpdate(`WEEKLY!A${idx+2}:E${idx+2}`,[[yearWeekKey,content,'Y',vals[idx][3]||now,now]]);
+  } else {
+    await sheetsAppend('WEEKLY!A:E',[[yearWeekKey,content,'Y',now,now]]);
+  }
+}
+async function weeklyLoad(yearWeekKey){
+  try{
+    const data=await sheetsGet('WEEKLY!A2:E');
+    const row=(data.values||[]).find(r=>r[0]===yearWeekKey&&r[2]!=='N');
+    return row?row[1]:'';
+  }catch(e){return'';}
+}
+
+/* ── MONTHLY CRUD ── */
+async function monthlySave(yearMonKey,content){
+  const rows=await sheetsGet('MONTHLY!A2:E');
+  const vals=rows.values||[];
+  const idx=vals.findIndex(r=>r[0]===yearMonKey);
+  const now=nowStr();
+  if(idx>=0){
+    await sheetsUpdate(`MONTHLY!A${idx+2}:E${idx+2}`,[[yearMonKey,content,'Y',vals[idx][3]||now,now]]);
+  } else {
+    await sheetsAppend('MONTHLY!A:E',[[yearMonKey,content,'Y',now,now]]);
+  }
+}
+async function monthlyLoad(yearMonKey){
+  try{
+    const data=await sheetsGet('MONTHLY!A2:E');
+    const row=(data.values||[]).find(r=>r[0]===yearMonKey&&r[2]!=='N');
+    return row?row[1]:'';
+  }catch(e){return'';}
+}
 const P_COLOR={high:'#C94040',mid:'#D06A10',low:'#1F7A52'};
 const STATUS_STYLE={
   '진행중':{bg:'#1F7A52',color:'#fff'},
@@ -531,8 +634,60 @@ function issuesForDate(d){return ISSUES.filter(i=>i.dates&&i.dates.includes(d));
 
 const CLIENT_ID='603081180385-5dmfebn8mm239lod4solqkig2molj886.apps.googleusercontent.com';
 const SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const SHEET_ID='11EkPFAcWP57VLHIbDuu4e7ntKpv8JxoUUuhJppeA5io';
+const API_BASE=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
 let accessToken='';
 let tokenClient=null;
+
+/* ── Sheets API 공통 호출 ── */
+async function sheetsGet(range){
+  const res=await fetch(`${API_BASE}/values/${encodeURIComponent(range)}`,{
+    headers:{Authorization:`Bearer ${accessToken}`}
+  });
+  if(!res.ok)throw new Error(await res.text());
+  return res.json();
+}
+async function sheetsAppend(range,values){
+  const res=await fetch(`${API_BASE}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,{
+    method:'POST',
+    headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+    body:JSON.stringify({values})
+  });
+  if(!res.ok)throw new Error(await res.text());
+  return res.json();
+}
+async function sheetsUpdate(range,values){
+  const res=await fetch(`${API_BASE}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,{
+    method:'PUT',
+    headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+    body:JSON.stringify({values})
+  });
+  if(!res.ok)throw new Error(await res.text());
+  return res.json();
+}
+async function sheetsBatchUpdate(data){
+  const res=await fetch(`${API_BASE}/values:batchUpdate`,{
+    method:'POST',
+    headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+    body:JSON.stringify({valueInputOption:'USER_ENTERED',data})
+  });
+  if(!res.ok)throw new Error(await res.text());
+  return res.json();
+}
+
+/* ── 날짜/시간 유틸 ── */
+function nowStr(){return new Date().toISOString().replace('T',' ').slice(0,19);}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function yearWeek(){
+  const d=new Date();
+  const jan1=new Date(d.getFullYear(),0,1);
+  const week=Math.ceil(((d-jan1)/86400000+jan1.getDay()+1)/7);
+  return `${d.getFullYear()}-W${String(week).padStart(2,'0')}`;
+}
+function yearMon(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
 
 function initTokenClient(){
   if(tokenClient)return;
@@ -552,11 +707,20 @@ function doGoogleLogin(){
   tokenClient.requestAccessToken({prompt:'select_account'});
 }
 
-function startApp(){
+async function startApp(){
   document.getElementById('view-login').style.display='none';
   document.getElementById('main-app').style.display='flex';
   history.replaceState({tab:'calendar'},'','#calendar');
-  renderCalendar();renderJournalList();renderTaskList();renderGantt();selectDate(3);
+  /* 실제 데이터 로드 */
+  try{
+    const [issues,dailies]=await Promise.all([issueLoad(),dailyLoad()]);
+    ISSUES=issues;
+    dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
+  }catch(e){console.error('데이터 로드 실패',e);}
+  renderCalendar();renderJournalList();renderTaskList();renderGantt();
+  const today=todayStr();
+  const d=parseInt(today.split('-')[2]);
+  selectDate(d);
 }
 
 function doLogout(){
@@ -859,11 +1023,22 @@ function onJournalEdit(){
   if(jdDirty){btn.className='btn-sm unsaved';btn.textContent='저장';hint.style.display='inline-flex';}
   else{btn.className='btn-sm primary';btn.textContent='저장';hint.style.display='none';}
 }
-function saveJournalDetail(){
-  jdOriginal=document.getElementById('jd-textarea').value;jdDirty=false;
+async function saveJournalDetail(){
+  const dt=document.getElementById('jd-date').textContent.split(' ')[0];
+  const content=document.getElementById('jd-textarea').value;
   const btn=document.getElementById('jd-save-btn');
-  btn.className='btn-sm primary';btn.textContent='저장';
-  document.getElementById('unsaved-hint').style.display='none';
+  btn.textContent='저장 중...';btn.disabled=true;
+  try{
+    await dailySave(dt,content);
+    JOURNALS[dt]=content;
+    jdOriginal=content;jdDirty=false;
+    btn.className='btn-sm primary';btn.textContent='저장';btn.disabled=false;
+    document.getElementById('unsaved-hint').style.display='none';
+    renderJournalList();
+  }catch(e){
+    btn.textContent='저장 실패';btn.disabled=false;
+    alert('저장 중 오류가 발생했습니다: '+e.message);
+  }
 }
 
 /* ── TASK LIST ── */
@@ -893,7 +1068,38 @@ function filterTask(btn,f){
   btn.classList.add('active');renderTaskList(f);
 }
 
-/* ── SEARCH ── */
+async function saveIssueDetail(){
+  const btn=document.querySelector('#view-detail .btn-sm.primary');
+  btn.textContent='저장 중...';btn.disabled=true;
+  const id=document.getElementById('d-id').value.trim();
+  if(!id){alert('이슈코드를 입력하세요.');btn.textContent='저장';btn.disabled=false;return;}
+  const iss={
+    id,
+    project:document.getElementById('d-project').value,
+    title:document.getElementById('d-title').value,
+    priority:document.getElementById('d-priority').value,
+    status:document.getElementById('d-status').value,
+    link:document.getElementById('d-link-input').value||document.getElementById('d-link-display').href==='#'?'':document.getElementById('d-link-display').href,
+    issueRegDate:document.getElementById('d-created').value,
+    targetDate:document.getElementById('d-due').value,
+    devStart:document.getElementById('d-devstart').value,
+    devEnd:document.getElementById('d-devend').value,
+    prodDate:document.getElementById('d-deploy').value,
+    progressNote:document.getElementById('d-progress').value,
+  };
+  const isNew=!ISSUES.find(i=>i.id===id);
+  try{
+    await issueSave(iss,isNew);
+    const updated=await issueLoad();
+    ISSUES=updated;
+    renderTaskList();renderGantt();renderCalendar();
+    btn.textContent='저장';btn.disabled=false;
+    goBack();
+  }catch(e){
+    btn.textContent='저장 실패';btn.disabled=false;
+    alert('저장 중 오류가 발생했습니다: '+e.message);
+  }
+}
 function doSearch(){
   const navInput=document.getElementById('nav-search-input');
   const barInput=document.getElementById('search-bar-input');
