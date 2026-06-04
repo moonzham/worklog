@@ -779,6 +779,7 @@ function switchTab(t,skipHistory){
 }
 
 async function reloadTab(t){
+  if(!accessToken)return;
   try{
     if(t==='calendar'){
       const [issues,dailies]=await Promise.all([issueLoad(),dailyLoad()]);
@@ -1091,6 +1092,10 @@ async function saveJournalDetail(){
 function renderTaskList(filter='all'){
   const tbody=document.getElementById('task-tbody');tbody.innerHTML='';
   const list=filter==='all'?ISSUES:ISSUES.filter(i=>i.status===filter);
+  if(!list.length){
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:2rem">등록된 업무가 없습니다</td></tr>`;
+    return;
+  }
   list.forEach(iss=>{
     const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
     const tr=document.createElement('tr');
@@ -1098,13 +1103,13 @@ function renderTaskList(filter='all'){
     const numCell=iss.link
       ?`<a class="task-num-link" href="${iss.link}" target="_blank" onclick="event.stopPropagation()">${iss.id}</a>`
       :`<span class="task-num-plain">${iss.id}</span>`;
-    tr.innerHTML=`<td><span class="priority-badge" style="background:${P_COLOR[iss.priority]}">${P_LABEL[iss.priority]||'중간'}</span></td>
+    tr.innerHTML=`<td><span class="priority-badge" style="background:${P_COLOR[iss.priority]||P_COLOR.mid}">${P_LABEL[iss.priority]||'중간'}</span></td>
     <td>${numCell}</td>
-    <td style="font-size:12px;color:var(--text)">${iss.title}</td>
-    <td style="font-size:11px;color:var(--text2)">${iss.created||'—'}</td>
-    <td style="font-size:11px;color:var(--text2)">${iss.due||'—'}</td>
-    <td style="font-size:11px;color:var(--text2)">${iss.devstart||'—'}</td>
-    <td style="font-size:11px;color:var(--text2)">${iss.deploy||'—'}</td>
+    <td style="font-size:12px;color:var(--text)">${iss.title||''}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.issueRegDate||'—'}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.targetDate||'—'}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.devStart||'—'}</td>
+    <td style="font-size:11px;color:var(--text2)">${iss.prodDate||'—'}</td>
     <td><span class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</span></td>`;
     tbody.appendChild(tr);
   });
@@ -1117,27 +1122,33 @@ function filterTask(btn,f){
 async function saveIssueDetail(){
   const btn=document.querySelector('#view-detail .btn-sm.primary');
   btn.textContent='저장 중...';btn.disabled=true;
+  /* 필수값 검증 */
   const id=document.getElementById('d-id').value.trim();
-  if(!id){alert('이슈코드를 입력하세요.');btn.textContent='저장';btn.disabled=false;return;}
+  const title=document.getElementById('d-title').value.trim();
+  if(!id){alert('이슈코드는 필수입니다.');btn.textContent='저장';btn.disabled=false;return;}
+  if(!title){alert('이슈 제목은 필수입니다.');btn.textContent='저장';btn.disabled=false;return;}
+  /* link 처리 */
+  const linkInput=document.getElementById('d-link-input').value.trim();
+  const linkDisplay=document.getElementById('d-link-display').href;
+  const link=linkInput||(linkDisplay==='#'||linkDisplay===window.location.href?'':linkDisplay);
   const iss={
     id,
     project:document.getElementById('d-project').value,
-    title:document.getElementById('d-title').value,
+    title,
     priority:document.getElementById('d-priority').value,
     status:document.getElementById('d-status').value,
-    link:document.getElementById('d-link-input').value||document.getElementById('d-link-display').href==='#'?'':document.getElementById('d-link-display').href,
-    issueRegDate:document.getElementById('d-created').value,
-    targetDate:document.getElementById('d-due').value,
-    devStart:document.getElementById('d-devstart').value,
-    devEnd:document.getElementById('d-devend').value,
-    prodDate:document.getElementById('d-deploy').value,
-    progressNote:document.getElementById('d-progress').value,
+    link:link||'',
+    issueRegDate:document.getElementById('d-created').value||'',
+    targetDate:document.getElementById('d-due').value||'',
+    devStart:document.getElementById('d-devstart').value||'',
+    devEnd:document.getElementById('d-devend').value||'',
+    prodDate:document.getElementById('d-deploy').value||'',
+    progressNote:document.getElementById('d-progress').value||'',
   };
   const isNew=!ISSUES.find(i=>i.id===id);
   try{
     await issueSave(iss,isNew);
-    const updated=await issueLoad();
-    ISSUES=updated;
+    ISSUES=await issueLoad();
     renderTaskList();renderGantt();renderCalendar();
     btn.textContent='저장';btn.disabled=false;
     goBack();
@@ -1189,9 +1200,9 @@ function doSearch(){
 
   /* 이슈 검색 */
   const issueHits=ISSUES.filter(i=>
-    i.id.toLowerCase().includes(lower)||
-    i.title.toLowerCase().includes(lower)||
-    (i.progress&&i.progress.toLowerCase().includes(lower))
+    (i.id&&i.id.toLowerCase().includes(lower))||
+    (i.title&&i.title.toLowerCase().includes(lower))||
+    (i.progressNote&&i.progressNote.toLowerCase().includes(lower))
   );
   const issueEl=document.createElement('div');issueEl.className='search-section';
   issueEl.innerHTML=`<div class="search-section-title">업무 이슈 (${issueHits.length})</div>`;
@@ -1206,7 +1217,7 @@ function doSearch(){
         <span class="sri-title">${highlight(iss.title)}</span>
         <span class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</span>
       </div>
-      ${iss.progress?`<div class="sri-body">${highlight(iss.progress)}</div>`:''}`;
+      ${iss.progressNote?`<div class="sri-body">${highlight(iss.progressNote)}</div>`:''}`;
       item.onclick=()=>{prevTab='search';openDetail(iss.id);};
       issueEl.appendChild(item);
     });
@@ -1221,28 +1232,54 @@ function doSearch(){
 /* ── GANTT ── */
 function renderGantt(){
   const wrap=document.getElementById('gantt-wrap');
-  const days=Array.from({length:30},(_,i)=>i+1);
-  const todayD=3;const cw=26;
+  const today=new Date();
+  const yr=today.getFullYear(),mo=today.getMonth()+1;
+  const daysInMonth=new Date(yr,mo,0).getDate();
+  const days=Array.from({length:daysInMonth},(_,i)=>i+1);
+  const todayD=today.getDate();
+  const cw=26;
+  const pad=n=>String(n).padStart(2,'0');
+
+  if(!ISSUES.length){
+    wrap.innerHTML='<div style="text-align:center;color:var(--text3);padding:3rem;font-size:13px">등록된 업무가 없습니다</div>';
+    return;
+  }
+
   let html=`<div style="display:flex;flex-direction:column">`;
   html+=`<div class="gantt-hdr-row"><div class="gantt-task-col">업무</div><div style="display:flex">`;
   days.forEach(d=>{
-    const dow=new Date(2026,5,d).getDay();const hol=HOLIDAYS[6]&&HOLIDAYS[6][d];
+    const dow=new Date(yr,mo-1,d).getDay();
+    const hol=HOLIDAYS[mo]&&HOLIDAYS[mo][d];
     html+=`<div class="gantt-day-hdr${dow===0||hol?' td-sun':dow===6?' td-sat':''}">${d}</div>`;
   });
   html+=`</div></div>`;
+
   ISSUES.forEach(iss=>{
+    if(!iss.devStart)return;
+    const endDate=iss.prodDate||iss.targetDate;
+    if(!endDate)return;
+    const startD=new Date(iss.devStart);
+    const endD=new Date(endDate);
+    const monthStart=new Date(yr,mo-1,1);
+    const monthEnd=new Date(yr,mo-1,daysInMonth);
+    if(endD<monthStart||startD>monthEnd)return;
+
+    const barStart=Math.max(1,startD.getMonth()+1===mo&&startD.getFullYear()===yr?startD.getDate():1);
+    const barEnd=Math.min(daysInMonth,endD.getMonth()+1===mo&&endD.getFullYear()===yr?endD.getDate():daysInMonth);
+    const barL=(barStart-1)*cw;
+    const barW=(barEnd-barStart+1)*cw;
     const c=chipColor(iss);
-    const minD=Math.min(...iss.dates),maxD=Math.max(...iss.dates);
-    const barL=(minD-1)*cw,barW=(maxD-minD+1)*cw;
+
     html+=`<div class="gantt-row" onclick="openDetail('${iss.id}',true)">
     <div class="gantt-task-info"><div class="gantt-task-id">${iss.id}</div><div class="gantt-task-name">${iss.title}</div></div>
     <div style="flex:1;position:relative;height:38px;display:flex">
-      ${days.map(d=>{const dow=new Date(2026,5,d).getDay();const hol=HOLIDAYS[6]&&HOLIDAYS[6][d];return `<div class="gantt-day-cell${dow===0||dow===6||hol?' weekend':''}"></div>`;}).join('')}
+      ${days.map(d=>{const dow=new Date(yr,mo-1,d).getDay();const hol=HOLIDAYS[mo]&&HOLIDAYS[mo][d];return `<div class="gantt-day-cell${dow===0||dow===6||hol?' weekend':''}"></div>`;}).join('')}
       <div class="gantt-bar" style="left:${barL}px;width:${barW}px;background:${c}"></div>
       <div class="gantt-today-line" style="left:${(todayD-1)*cw+cw/2}px"></div>
     </div></div>`;
   });
-  html+=`</div>`;wrap.innerHTML=html;
+  html+=`</div>`;
+  wrap.innerHTML=html;
 }
 </script>
 </body>
