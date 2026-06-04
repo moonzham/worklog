@@ -695,6 +695,10 @@ function initTokenClient(){
     callback:(tokenResponse)=>{
       if(tokenResponse.error)return;
       accessToken=tokenResponse.access_token;
+      /* 만료시간 저장 (발급후 3600초) */
+      const expiry=Date.now()+(tokenResponse.expires_in||3600)*1000-60000;
+      localStorage.setItem('wl_token',accessToken);
+      localStorage.setItem('wl_token_expiry',expiry);
       startApp();
     }
   });
@@ -704,6 +708,16 @@ function doGoogleLogin(){
   initTokenClient();
   tokenClient.requestAccessToken({prompt:'select_account'});
 }
+
+/* 페이지 로드시 토큰 확인 → 유효하면 자동 로그인 */
+window.addEventListener('load',()=>{
+  const token=localStorage.getItem('wl_token');
+  const expiry=parseInt(localStorage.getItem('wl_token_expiry')||'0');
+  if(token&&Date.now()<expiry){
+    accessToken=token;
+    startApp();
+  }
+});
 
 async function startApp(){
   document.getElementById('view-login').style.display='none';
@@ -732,6 +746,8 @@ function doLogout(){
     google.accounts.oauth2.revoke(accessToken,()=>{});
     accessToken='';
   }
+  localStorage.removeItem('wl_token');
+  localStorage.removeItem('wl_token_expiry');
   document.getElementById('view-login').style.display='flex';
   document.getElementById('main-app').style.display='none';
 }
