@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -262,11 +263,21 @@ td.td-hol .day-num{color:var(--red)!important}
       <div class="login-logo">worklog</div>
       <p class="login-sub">업무일지 · 이슈 · 간트차트를<br>한 곳에서 관리하세요</p>
       <div class="login-hr"></div>
-      <button class="google-btn" onclick="doLogin()">
-        <svg class="google-icon" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.131 17.64 11.823 17.64 9.2z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-        Google 계정으로 로그인
-      </button>
-      <p class="login-note">로그인 시 GitHub · Jira 연동 설정을 진행할 수 있습니다</p>
+      <div id="g_id_onload"
+        data-client_id="603081180385-5dmfebn8mm239lod4solqkig2molj886.apps.googleusercontent.com"
+        data-callback="handleGoogleLogin"
+        data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin"
+        data-type="standard"
+        data-shape="rectangular"
+        data-theme="outline"
+        data-text="sign_in_with"
+        data-size="large"
+        data-locale="ko"
+        data-width="280">
+      </div>
+      <p class="login-note">Google 계정으로 로그인하여 업무일지와 이슈를 관리하세요</p>
     </div>
   </div>
 </div>
@@ -528,13 +539,38 @@ let jdOriginal='',jdDirty=false,curSelDateKey='';
 function chipColor(iss){return P_COLOR[iss.priority]||P_COLOR.mid;}
 function issuesForDate(d){return ISSUES.filter(i=>i.dates&&i.dates.includes(d));}
 
-function doLogin(){
+const CLIENT_ID='603081180385-5dmfebn8mm239lod4solqkig2molj886.apps.googleusercontent.com';
+const SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+let accessToken='';
+let tokenClient=null;
+
+function handleGoogleLogin(response){
+  /* ID 토큰 받은 후 access token 요청 */
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,
+    scope:SCOPES,
+    callback:(tokenResponse)=>{
+      if(tokenResponse.error)return;
+      accessToken=tokenResponse.access_token;
+      startApp();
+    }
+  });
+  tokenClient.requestAccessToken({prompt:''});
+}
+
+function startApp(){
   document.getElementById('view-login').style.display='none';
   document.getElementById('main-app').style.display='flex';
   history.replaceState({tab:'calendar'},'','#calendar');
   renderCalendar();renderJournalList();renderTaskList();renderGantt();selectDate(3);
 }
+
 function doLogout(){
+  if(accessToken){
+    google.accounts.oauth2.revoke(accessToken,()=>{});
+    accessToken='';
+  }
+  google.accounts.id.disableAutoSelect();
   document.getElementById('view-login').style.display='flex';
   document.getElementById('main-app').style.display='none';
 }
