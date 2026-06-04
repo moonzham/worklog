@@ -763,17 +763,43 @@ function switchTab(t,skipHistory){
     b.classList.toggle('active',['calendar','journal','tasks','gantt'][i]===t);
   });
   if(!['detail','jdetail','search'].includes(t))prevTab=t;
-  /* 검색 탭 아닐 때 검색창 초기화 */
   if(t!=='search'){
     document.getElementById('nav-search-input').value='';
     document.getElementById('search-bar-input').value='';
     document.getElementById('search-keyword').style.display='none';
     document.getElementById('search-results').innerHTML='';
   }
-  /* 브라우저 히스토리 */
   if(!skipHistory){
     history.pushState({tab:t},'',`#${t}`);
   }
+  /* 탭별 데이터 리로드 */
+  if(!['detail','jdetail','search'].includes(t)){
+    reloadTab(t);
+  }
+}
+
+async function reloadTab(t){
+  try{
+    if(t==='calendar'){
+      const [issues,dailies]=await Promise.all([issueLoad(),dailyLoad()]);
+      ISSUES=issues;
+      Object.keys(JOURNALS).forEach(k=>delete JOURNALS[k]);
+      dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
+      renderCalendar();
+      if(selDate)selectDate(selDate);
+    } else if(t==='journal'){
+      const dailies=await dailyLoad();
+      Object.keys(JOURNALS).forEach(k=>delete JOURNALS[k]);
+      dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
+      renderJournalList();
+    } else if(t==='tasks'){
+      ISSUES=await issueLoad();
+      renderTaskList();
+    } else if(t==='gantt'){
+      ISSUES=await issueLoad();
+      renderGantt();
+    }
+  }catch(e){console.error('탭 리로드 실패',e);}
 }
 function goBack(){switchTab(prevTab);}
 
