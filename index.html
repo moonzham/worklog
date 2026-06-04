@@ -263,20 +263,10 @@ td.td-hol .day-num{color:var(--red)!important}
       <div class="login-logo">worklog</div>
       <p class="login-sub">업무일지 · 이슈 · 간트차트를<br>한 곳에서 관리하세요</p>
       <div class="login-hr"></div>
-      <div id="g_id_onload"
-        data-client_id="603081180385-5dmfebn8mm239lod4solqkig2molj886.apps.googleusercontent.com"
-        data-callback="handleGoogleLogin"
-        data-auto_prompt="false">
-      </div>
-      <div class="g_id_signin"
-        data-type="standard"
-        data-shape="rectangular"
-        data-theme="outline"
-        data-text="sign_in_with"
-        data-size="large"
-        data-locale="ko"
-        data-width="280">
-      </div>
+      <button class="google-btn" onclick="doGoogleLogin()">
+        <svg class="google-icon" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.131 17.64 11.823 17.64 9.2z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+        Google 계정으로 로그인
+      </button>
       <p class="login-note">Google 계정으로 로그인하여 업무일지와 이슈를 관리하세요</p>
     </div>
   </div>
@@ -544,7 +534,8 @@ const SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapi
 let accessToken='';
 let tokenClient=null;
 
-function handleGoogleLogin(response){
+function initTokenClient(){
+  if(tokenClient)return;
   tokenClient=google.accounts.oauth2.initTokenClient({
     client_id:CLIENT_ID,
     scope:SCOPES,
@@ -554,8 +545,11 @@ function handleGoogleLogin(response){
       startApp();
     }
   });
-  /* 이미 동의한 경우 팝업 없이 발급, 처음이면 동의 화면 표시 */
-  tokenClient.requestAccessToken({prompt:'none',hint:response.credential?JSON.parse(atob(response.credential.split('.')[1])).email:''});
+}
+
+function doGoogleLogin(){
+  initTokenClient();
+  tokenClient.requestAccessToken({prompt:'select_account'});
 }
 
 function startApp(){
@@ -570,7 +564,6 @@ function doLogout(){
     google.accounts.oauth2.revoke(accessToken,()=>{});
     accessToken='';
   }
-  google.accounts.id.disableAutoSelect();
   document.getElementById('view-login').style.display='flex';
   document.getElementById('main-app').style.display='none';
 }
