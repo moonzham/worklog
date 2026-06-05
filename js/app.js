@@ -143,6 +143,12 @@ let ISSUES=[];
 const JOURNALS={};
 let CODES={PROJECT:[]};  /* 공통코드 캐시 */
 
+function getProjectName(code){
+  if(!code)return'';
+  const p=CODES.PROJECT.find(p=>p.code===code);
+  return p?p.name:code;
+}
+
 let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none';
 let jdOriginal='',jdDirty=false,curSelDateKey='';
 
@@ -704,7 +710,7 @@ function renderTaskList(filter='all'){
   /* ISSUE_SEQ DESC 정렬 */
   list.sort((a,b)=>b.seq.localeCompare(a.seq));
   if(!list.length){
-    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:2rem">등록된 업무가 없습니다</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:2rem">등록된 업무가 없습니다</td></tr>`;
     return;
   }
   list.forEach(iss=>{
@@ -719,6 +725,7 @@ function renderTaskList(filter='all'){
     tr.innerHTML=`<td><span class="priority-badge" style="background:${P_COLOR[iss.priority]||P_COLOR.mid}">${P_LABEL[iss.priority]||'중간'}</span></td>
     <td>${numCell}</td>
     <td style="font-size:12px;color:var(--text)">${iss.title||''}</td>
+    <td style="font-size:11px;color:var(--text2)">${getProjectName(iss.project)||'—'}</td>
     <td style="font-size:11px;color:var(--text2)">${iss.issueRegDate||'—'}</td>
     <td style="font-size:11px;color:var(--text2)">${iss.targetDate||'—'}</td>
     <td style="font-size:11px;color:var(--text2)">${iss.devStart||'—'}</td>
