@@ -100,8 +100,7 @@ td.td-hol .day-num{color:var(--red)!important}
 .journal-view-area{width:100%;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;background:var(--bg);color:var(--text);line-height:1.6;height:250px;overflow-y:auto;cursor:pointer;white-space:pre-wrap;word-break:break-all}
 .journal-view-area:hover{border-color:var(--border2)}
 .journal-view-area.empty{color:var(--text3);font-style:italic}
-.journal-reg-btn{font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text)}
-.journal-reg-btn:hover{background:var(--bg)}
+.journal-view-area.empty:hover{border-color:var(--text);background:#F0EFE9}
 .btn-sm{font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:var(--radius);background:none;color:var(--text);transition:all .15s}
 .btn-sm:hover{background:var(--bg)}
 .btn-sm.primary{background:var(--text);color:var(--surface);border-color:var(--text)}
@@ -313,9 +312,6 @@ td.td-hol .day-num{color:var(--red)!important}
           <span id="journal-box-label">2026년 6월 3일 업무일지</span>
         </div>
         <div class="journal-view-area" id="journal-view" onclick="goToJournalDetail()"></div>
-        <div id="journal-reg-wrap" style="display:none;margin-top:8px;text-align:right">
-          <button class="journal-reg-btn" onclick="goToJournalNew()">+ 업무일지 등록</button>
-        </div>
       </div>
 
       <div class="agenda-box" id="agenda-box" style="display:none">
@@ -617,8 +613,8 @@ let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=nu
 let jdOriginal='',jdDirty=false,curSelDateKey='';
 /* 업무일지 페이지네이션 상태 */
 let jlistAllDates=[]; /* 전체 날짜 풀 (ASC: 오래된순 → 최신순) */
-let jlistFrom=0;      /* 현재 화면에 보이는 구간 시작 인덱스 */
-let jlistTo=0;        /* 현재 화면에 보이는 구간 끝 인덱스 (exclusive) */
+let jlistFrom=0;      /* 현재 보이는 구간 시작 인덱스 */
+let jlistTo=0;        /* 현재 보이는 구간 끝 인덱스 (exclusive) */
 const JLIST_PAGE=7;
 
 /* 이슈칩 색상: 중요도 기준 */
@@ -873,7 +869,7 @@ function renderCalendar(){
       const blank=(wk===0&&dow<firstDay);
       if(!blank&&d<=daysInMonth){
         const dd=d;
-        const isToday=(curYear===2026&&curMonth===6&&dd===3);
+        const todayObj=new Date();const isToday=(curYear===todayObj.getFullYear()&&curMonth===todayObj.getMonth()+1&&dd===todayObj.getDate());
         const hol=HOLIDAYS[curMonth]&&HOLIDAYS[curMonth][dd];
         if(dow===0)td.classList.add('td-sun');
         if(dow===6)td.classList.add('td-sat');
@@ -926,21 +922,16 @@ function selectDate(d){
   document.getElementById('journal-box').style.display='block';
   document.getElementById('agenda-box').style.display='block';
   const dow=new Date(curYear,curMonth-1,d).getDay();
-  const isToday=curYear===2026&&curMonth===6&&d===3;
+  const todayObj=new Date();const isToday=curYear===todayObj.getFullYear()&&curMonth===todayObj.getMonth()+1&&d===todayObj.getDate();
   document.getElementById('journal-box-label').textContent=`${curYear}년 ${curMonth}월 ${d}일 업무일지`;
   const text=JOURNALS[curSelDateKey]||'';
   const viewEl=document.getElementById('journal-view');
-  const regWrap=document.getElementById('journal-reg-wrap');
   if(text){
     viewEl.textContent=text;
     viewEl.classList.remove('empty');
-    viewEl.style.display='block';
-    regWrap.style.display='none';
   } else {
-    viewEl.textContent='작성된 업무일지가 없습니다.';
+    viewEl.textContent='업무일지가 없습니다. 클릭하여 등록하세요.';
     viewEl.classList.add('empty');
-    viewEl.style.display='block';
-    regWrap.style.display='block';
   }
   document.getElementById('agenda-date-hdr').innerHTML=`${curMonth}월 ${d}일 (${DOW[dow]}) ${isToday?'<span class="today-badge">오늘</span>':''}`;
   const list=document.getElementById('agenda-list');list.innerHTML='';
@@ -961,15 +952,10 @@ function selectDate(d){
 
 function goToJournalDetail(){
   if(!curSelDateKey)return;
-  const text=JOURNALS[curSelDateKey];
-  if(!text)return;
   prevTab='calendar';
-  openJournalDetail(curSelDateKey);
-}
-function goToJournalNew(){
-  if(!curSelDateKey)return;
-  prevTab='calendar';
-  openJournalDetail(curSelDateKey,true);
+  /* 내용 있으면 조회, 없으면 신규 등록 */
+  const isNew=!JOURNALS[curSelDateKey];
+  openJournalDetail(curSelDateKey,isNew);
 }
 
 function hideBottom(){
@@ -1009,14 +995,17 @@ function changeMonth(dir){
   ['month-report-box','week-report-box','agenda-box','journal-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
-function goToday(){curYear=2026;curMonth=6;document.getElementById('month-label').textContent='2026년 6월';renderCalendar();selectDate(3);}
+function goToday(){const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;renderCalendar();selectDate(t.getDate());}
 
 /* ── JOURNAL LIST ── */
 function buildJlistDates(){
-  /* JOURNALS에 저장된 날짜만 사용 → ASC 정렬 */
+  /* 오늘 기준 과거 365일 + JOURNALS에 있는 날짜 모두 포함 → ASC 정렬 */
+  const today=new Date();
   const dateSet=new Set(Object.keys(JOURNALS));
-  /* 오늘도 항상 포함 */
-  dateSet.add(todayStr());
+  for(let i=0;i<365;i++){
+    const d=new Date(today);d.setDate(today.getDate()-i);
+    dateSet.add(d.toISOString().slice(0,10));
+  }
   jlistAllDates=[...dateSet].sort((a,b)=>a.localeCompare(b));
 }
 
@@ -1030,7 +1019,7 @@ function makeJlistItem(dt){
     return i.devStart<=dt&&endDate>=dt;
   });
   const item=document.createElement('div');item.className='jlist-item';
-  item.onclick=()=>openJournalDetail(dt);
+  item.onclick=()=>openJournalDetail(dt,!text);
   let issHtml='';
   if(issues.length){
     issHtml=`<div style="margin-top:2px">${issues.map(i=>{
@@ -1043,53 +1032,44 @@ function makeJlistItem(dt){
       </div>`;
     }).join('')}</div>`;
   }
-  const preview=text?text.slice(0,120)+(text.length>120?'…':''):'작성된 일지가 없습니다.';
+  const preview=text
+    ?text.slice(0,120)+(text.length>120?'…':'')
+    :'<span style="color:var(--text3);font-style:italic">작성된 일지가 없습니다.</span>';
   item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
-  <div class="jlist-text${text?'':' empty'}">${preview}</div>${issHtml}`;
+  <div class="jlist-text">${preview}</div>${issHtml}`;
   return item;
 }
 
 function updateJlistButtons(){
-  const upBtn=document.getElementById('jlist-btn-up');
-  const downBtn=document.getElementById('jlist-btn-down');
-  const total=jlistAllDates.length;
-  /* 위(과거) 더 있으면 상단 버튼 */
-  upBtn.style.display=jlistFrom>0?'block':'none';
-  /* 아래(미래/최신) 더 있으면 하단 버튼 */
-  downBtn.style.display=jlistTo<total?'block':'none';
+  document.getElementById('jlist-btn-up').style.display=jlistFrom>0?'block':'none';
+  document.getElementById('jlist-btn-down').style.display=jlistTo<jlistAllDates.length?'block':'none';
 }
 
 function renderJournalList(){
   buildJlistDates();
   const el=document.getElementById('journal-entries');el.innerHTML='';
   const total=jlistAllDates.length;
-  /* 초기: 맨 끝(최신) 7개 */
+  /* 초기: 맨 끝(최신) 7일 */
   jlistTo=total;
   jlistFrom=Math.max(0,total-JLIST_PAGE);
-  const slice=jlistAllDates.slice(jlistFrom,jlistTo);
-  slice.forEach(dt=>el.appendChild(makeJlistItem(dt)));
+  jlistAllDates.slice(jlistFrom,jlistTo).forEach(dt=>el.appendChild(makeJlistItem(dt)));
   updateJlistButtons();
 }
 
 function loadMore(dir){
   const el=document.getElementById('journal-entries');
   if(dir==='up'){
-    /* 과거 방향: jlistFrom 위로 7개 더 */
     const newFrom=Math.max(0,jlistFrom-JLIST_PAGE);
     if(newFrom>=jlistFrom)return;
-    const newDates=jlistAllDates.slice(newFrom,jlistFrom);
-    /* prepend */
     const frag=document.createDocumentFragment();
-    newDates.forEach(dt=>frag.appendChild(makeJlistItem(dt)));
+    jlistAllDates.slice(newFrom,jlistFrom).forEach(dt=>frag.appendChild(makeJlistItem(dt)));
     el.insertBefore(frag,el.firstChild);
     jlistFrom=newFrom;
   } else {
-    /* 미래 방향: jlistTo 아래로 7개 더 */
     const total=jlistAllDates.length;
     const newTo=Math.min(total,jlistTo+JLIST_PAGE);
     if(newTo<=jlistTo)return;
-    const newDates=jlistAllDates.slice(jlistTo,newTo);
-    newDates.forEach(dt=>el.appendChild(makeJlistItem(dt)));
+    jlistAllDates.slice(jlistTo,newTo).forEach(dt=>el.appendChild(makeJlistItem(dt)));
     jlistTo=newTo;
   }
   updateJlistButtons();
