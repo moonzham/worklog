@@ -506,12 +506,17 @@ function goToday(){
 
 /* ── JOURNAL LIST ── */
 function buildJlistDates(){
-  /* 오늘 기준 과거 365일 고정 생성 (미래 날짜 완전 제외) */
   const today=todayStr();
   const dateSet=new Set();
+  /* 과거 365일 */
   for(let i=0;i<365;i++) dateSet.add(dateOffset(i));
-  /* JOURNALS에 있는 날짜 중 오늘 이전 것만 추가 */
-  Object.keys(JOURNALS).forEach(dt=>{ if(dt<=today) dateSet.add(dt); });
+  /* 미래 365일 */
+  for(let i=1;i<=365;i++){
+    const d=new Date();d.setDate(d.getDate()+i);
+    dateSet.add(d.toISOString().slice(0,10));
+  }
+  /* JOURNALS 날짜 전부 포함 (과거/미래 모두) */
+  Object.keys(JOURNALS).forEach(dt=>dateSet.add(dt));
   jlistAllDates=[...dateSet].sort((a,b)=>a.localeCompare(b));
 }
 
@@ -520,12 +525,14 @@ function makeJlistItem(dt){
   const text=JOURNALS[dt];
   const issues=issuesForDateStr(dt);
   const item=document.createElement('div');item.className='jlist-item';
+  /* 카드 전체 클릭 → 일지 상세(신규 or 조회) */
   item.onclick=()=>openJournalDetail(dt,!text);
   let issHtml='';
   if(issues.length){
     issHtml=`<div style="margin-top:2px">${issues.map(i=>{
       const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
-      return `<div class="issue-row">
+      /* 이슈행은 별도 div로 클릭 이벤트 분리 */
+      return `<div class="issue-row" data-id="${i.id}">
         <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
         <div class="issue-row-title">${i.title}</div>
         <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
@@ -538,6 +545,14 @@ function makeJlistItem(dt){
     :'<span style="color:var(--text3);font-style:italic">작성된 일지가 없습니다.</span>';
   item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
   <div class="jlist-text">${preview}</div>${issHtml}`;
+  /* 이슈행 클릭 → 이슈 상세 (카드 클릭 이벤트 버블링 차단) */
+  item.querySelectorAll('.issue-row').forEach(row=>{
+    row.onclick=(e)=>{
+      e.stopPropagation();
+      prevTab='journal';
+      openDetail(row.dataset.id);
+    };
+  });
   return item;
 }
 
@@ -549,10 +564,15 @@ function updateJlistButtons(){
 function renderJournalList(){
   buildJlistDates();
   const el=document.getElementById('journal-entries');el.innerHTML='';
-  const total=jlistAllDates.length;
-  /* 초기: 오늘 포함 최근 7일 (맨 끝 7개) */
-  jlistTo=total;
-  jlistFrom=Math.max(0,total-JLIST_PAGE);
+  const today=todayStr();
+  /* 오늘 인덱스 찾기 */
+  const todayIdx=jlistAllDates.findIndex(dt=>dt>=today);
+  const centerIdx=todayIdx>=0?todayIdx:jlistAllDates.length-1;
+  /* 오늘 기준 앞 3개 + 오늘 + 뒤 3개 = 7개 */
+  jlistFrom=Math.max(0,centerIdx-3);
+  jlistTo=Math.min(jlistAllDates.length,jlistFrom+JLIST_PAGE);
+  /* 끝에 붙은 경우 앞으로 당기기 */
+  if(jlistTo-jlistFrom<JLIST_PAGE) jlistFrom=Math.max(0,jlistTo-JLIST_PAGE);
   jlistAllDates.slice(jlistFrom,jlistTo).forEach(dt=>el.appendChild(makeJlistItem(dt)));
   updateJlistButtons();
 }
