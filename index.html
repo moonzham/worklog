@@ -146,7 +146,10 @@
           <button class="filter-chip" onclick="filterTask(this,'테스트')">테스트</button>
           <button class="filter-chip" onclick="filterTask(this,'완료')">완료</button>
         </div>
-        <button class="add-task-btn" onclick="openNewTask()">+ 업무등록</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select class="field-select" id="task-project-filter" onchange="renderTaskList()" style="font-size:12px;padding:5px 10px"></select>
+          <button class="add-task-btn" onclick="openNewTask()">+ 업무등록</button>
+        </div>
       </div>
       <table class="task-table">
         <thead>
@@ -154,7 +157,6 @@
             <th style="width:60px">중요도</th>
             <th style="width:88px">이슈번호</th>
             <th>이슈제목</th>
-            <th style="width:80px">프로젝트</th>
             <th style="width:92px">이슈등록일</th>
             <th style="width:92px">완료목표일</th>
             <th style="width:92px">개발시작일</th>

@@ -284,6 +284,7 @@ async function startApp(){
     dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
   }catch(e){console.error('데이터 로드 실패',e);}
   renderProjectSelect();
+  renderTaskProjectFilter();
   const today=new Date();
   curYear=today.getFullYear();
   curMonth=today.getMonth()+1;
@@ -704,13 +705,19 @@ async function saveJournalDetail(){
 }
 
 /* ── TASK LIST ── */
-function renderTaskList(filter='all'){
+function renderTaskList(filter='all',projectFilter){
+  /* projectFilter 없으면 현재 콤보박스 값 사용 */
+  if(projectFilter===undefined){
+    const sel=document.getElementById('task-project-filter');
+    projectFilter=sel?sel.value:'all';
+  }
   const tbody=document.getElementById('task-tbody');tbody.innerHTML='';
   let list=filter==='all'?[...ISSUES]:ISSUES.filter(i=>i.status===filter);
+  if(projectFilter&&projectFilter!=='all') list=list.filter(i=>i.project===projectFilter);
   /* ISSUE_SEQ DESC 정렬 */
   list.sort((a,b)=>b.seq.localeCompare(a.seq));
   if(!list.length){
-    tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:2rem">등록된 업무가 없습니다</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:2rem">등록된 업무가 없습니다</td></tr>`;
     return;
   }
   list.forEach(iss=>{
@@ -725,7 +732,6 @@ function renderTaskList(filter='all'){
     tr.innerHTML=`<td><span class="priority-badge" style="background:${P_COLOR[iss.priority]||P_COLOR.mid}">${P_LABEL[iss.priority]||'중간'}</span></td>
     <td>${numCell}</td>
     <td style="font-size:12px;color:var(--text)">${iss.title||''}</td>
-    <td style="font-size:11px;color:var(--text2)">${getProjectName(iss.project)||'—'}</td>
     <td style="font-size:11px;color:var(--text2)">${iss.issueRegDate||'—'}</td>
     <td style="font-size:11px;color:var(--text2)">${iss.targetDate||'—'}</td>
     <td style="font-size:11px;color:var(--text2)">${iss.devStart||'—'}</td>
@@ -737,6 +743,20 @@ function renderTaskList(filter='all'){
 function filterTask(btn,f){
   document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');renderTaskList(f);
+}
+function renderTaskProjectFilter(){
+  const sel=document.getElementById('task-project-filter');
+  if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="all">전체 프로젝트</option>';
+  CODES.PROJECT.forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.code;opt.textContent=p.name;
+    sel.appendChild(opt);
+  });
+  /* 기본값: 이전 선택값 유지 or SORT_ORDER 1번 프로젝트 */
+  if(prev&&prev!=='all') sel.value=prev;
+  else if(CODES.PROJECT.length) sel.value=CODES.PROJECT[0].code;
 }
 
 function showTitleError(msg){
