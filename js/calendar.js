@@ -47,9 +47,10 @@ function renderCalendar(){
       }
       tr.appendChild(td);
     }
+    const weekIdx=wk;
     const wkTd=document.createElement('td');wkTd.className='week-btn-cell';
-    wkTd.innerHTML=`<div class="wk-btn-inner"><div class="wk-num">W${wk+1}</div><div class="wk-sub">주간보고</div></div>`;
-    wkTd.onclick=()=>showWeekReport(wk);
+    wkTd.innerHTML=`<div class="wk-btn-inner"><div class="wk-num">W${weekIdx+1}</div><div class="wk-sub">주간보고</div></div>`;
+    wkTd.onclick=()=>showWeekReport(weekIdx);
     tr.appendChild(wkTd);
     tbody.appendChild(tr);wk++;
   }
