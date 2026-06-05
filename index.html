@@ -79,17 +79,23 @@
       <div class="report-box" id="month-report-box" style="display:none">
         <div class="report-hdr">
           <span class="report-title-txt" id="month-report-title">월간보고</span>
-          <button class="report-gen-btn" onclick="genReport('month')">✦ 월간보고 생성</button>
+          <div class="report-actions">
+            <button class="report-gen-btn" onclick="genReport('month')">✦ 데이터 확인</button>
+            <button class="btn-sm primary" onclick="saveReport('month')">저장/수정</button>
+          </div>
         </div>
-        <div class="report-content"><textarea class="report-textarea" id="month-report-ta" placeholder="작성된 월간보고가 없습니다."></textarea></div>
+        <div class="report-content"><textarea class="report-textarea" id="month-report-ta" placeholder="작성된 월간보고가 없습니다. 데이터 확인 버튼으로 AI 전송 전 데이터를 확인하거나 직접 입력하세요."></textarea></div>
       </div>
 
       <div class="report-box" id="week-report-box" style="display:none">
         <div class="report-hdr">
           <span class="report-title-txt" id="week-report-title">주간보고</span>
-          <button class="report-gen-btn" onclick="genReport('week')">✦ 주간보고 생성</button>
+          <div class="report-actions">
+            <button class="report-gen-btn" onclick="genReport('week')">✦ 데이터 확인</button>
+            <button class="btn-sm primary" onclick="saveReport('week')">저장/수정</button>
+          </div>
         </div>
-        <div class="report-content"><textarea class="report-textarea" id="week-report-ta" placeholder="작성된 주간보고가 없습니다."></textarea></div>
+        <div class="report-content"><textarea class="report-textarea" id="week-report-ta" placeholder="작성된 주간보고가 없습니다. 데이터 확인 버튼으로 AI 전송 전 데이터를 확인하거나 직접 입력하세요."></textarea></div>
       </div>
     </div>
   </div>

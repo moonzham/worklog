@@ -95,43 +95,165 @@ function goToJournalDetail(){
   openJournalDetail(curSelDateKey,!JOURNALS[curSelDateKey]);
 }
 function hideBottom(){
-  bottomMode='none';selDate=null;
+  bottomMode='none';selDate=null;curWeekIdx=null;
   ['journal-box','agenda-box','month-report-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
+function reportDateStr(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function monthReportKey(year=curYear,month=curMonth){
+  return `${year}-${String(month).padStart(2,'0')}`;
+}
+function weekReportKey(year=curYear,month=curMonth,weekIdx=curWeekIdx){
+  return `${monthReportKey(year,month)}-W${String((weekIdx||0)+1).padStart(2,'0')}`;
+}
+function getMonthReportPeriod(year=curYear,month=curMonth){
+  const start=new Date(year,month-1,1);
+  const end=new Date(year,month,0);
+  return {
+    key:monthReportKey(year,month),
+    label:`${year}년 ${month}월`,
+    startDate:reportDateStr(start),
+    endDate:reportDateStr(end)
+  };
+}
+function getWeekReportPeriod(weekIdx=curWeekIdx,year=curYear,month=curMonth){
+  const daysInMonth=new Date(year,month,0).getDate();
+  const firstDay=new Date(year,month-1,1).getDay();
+  const rowStartDay=weekIdx*7-firstDay+1;
+  const startDay=Math.max(1,rowStartDay);
+  const endDay=Math.min(daysInMonth,rowStartDay+6);
+  const safeStartDay=startDay>daysInMonth?daysInMonth:startDay;
+  const safeEndDay=endDay<1?1:endDay;
+  return {
+    key:weekReportKey(year,month,weekIdx),
+    label:`${year}년 ${month}월 ${weekIdx+1}주차`,
+    weekIndex:weekIdx,
+    startDate:reportDateStr(new Date(year,month-1,safeStartDay)),
+    endDate:reportDateStr(new Date(year,month-1,safeEndDay))
+  };
+}
+function getReportPeriod(type){
+  return type==='month'?getMonthReportPeriod():getWeekReportPeriod(curWeekIdx===null?0:curWeekIdx);
+}
+function dateInRange(date,startDate,endDate){
+  return date>=startDate&&date<=endDate;
+}
+function issueOverlapsPeriod(iss,startDate,endDate){
+  const start=iss.devStart||iss.issueRegDate||iss.targetDate||iss.devEnd||iss.prodDate;
+  if(!start)return false;
+  const end=iss.prodDate||iss.devEnd||iss.targetDate||start;
+  return start<=endDate&&end>=startDate;
+}
+function countBy(list,fn){
+  return list.reduce((acc,item)=>{
+    const key=fn(item)||'미지정';
+    acc[key]=(acc[key]||0)+1;
+    return acc;
+  },{});
+}
+function buildReportAiPayload(type){
+  const period=getReportPeriod(type);
+  const journals=Object.entries(JOURNALS)
+    .filter(([date,content])=>content&&dateInRange(date,period.startDate,period.endDate))
+    .sort(([a],[b])=>a.localeCompare(b))
+    .map(([date,content])=>({date,content}));
+  const issues=ISSUES
+    .filter(iss=>iss.useYn!=='N'&&issueOverlapsPeriod(iss,period.startDate,period.endDate))
+    .sort((a,b)=>(a.devStart||a.issueRegDate||'').localeCompare(b.devStart||b.issueRegDate||''))
+    .map(iss=>({
+      seq:iss.seq,
+      id:iss.id,
+      project:iss.project,
+      projectName:getProjectName(iss.project),
+      title:iss.title,
+      priority:iss.priority,
+      priorityName:P_LABEL[iss.priority]||iss.priority||'미지정',
+      status:iss.status,
+      link:iss.link,
+      issueRegDate:iss.issueRegDate,
+      targetDate:iss.targetDate,
+      devStart:iss.devStart,
+      devEnd:iss.devEnd,
+      prodDate:iss.prodDate,
+      progressNote:iss.progressNote
+    }));
+  return {
+    reportType:type,
+    generatedAt:nowStr(),
+    period,
+    journals,
+    issues,
+    summary:{
+      journalCount:journals.length,
+      issueCount:issues.length,
+      statusCounts:countBy(issues,iss=>iss.status),
+      priorityCounts:countBy(issues,iss=>iss.priorityName),
+      projectCounts:countBy(issues,iss=>iss.projectName)
+    }
+  };
+}
+function renderReportAiPayloadPreview(type){
+  const payload=buildReportAiPayload(type);
+  return `AI 전송 전 데이터 미리보기\n${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})\n\n${JSON.stringify(payload,null,2)}`;
+}
+async function loadReport(type){
+  const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
+  const period=getReportPeriod(type);
+  ta.value='보고서를 불러오는 중입니다...';
+  try{
+    ta.value=type==='month'
+      ?await monthlyLoad(period.key)
+      :await weeklyLoad(period.key);
+  }catch(e){
+    ta.value='';
+    alert('보고서를 불러오는 중 오류가 발생했습니다: '+e.message);
+  }
+}
+async function saveReport(type){
+  const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
+  const period=getReportPeriod(type);
+  try{
+    if(type==='month')await monthlySave(period.key,ta.value);
+    else await weeklySave(period.key,ta.value);
+    alert(`${period.label} 보고서를 저장했습니다.`);
+  }catch(e){
+    alert('보고서 저장 중 오류가 발생했습니다: '+e.message);
+  }
+}
 function toggleMonthReport(){
   if(bottomMode==='month'){bottomMode='none';document.getElementById('month-report-box').style.display='none';return;}
-  bottomMode='month';
+  bottomMode='month';curWeekIdx=null;
   ['agenda-box','journal-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('month-report-box').style.display='block';
-  document.getElementById('month-report-title').textContent=`${curYear}년 ${curMonth}월 월간보고`;
+  const period=getMonthReportPeriod();
+  document.getElementById('month-report-title').textContent=`${period.label} 월간보고`;
+  loadReport('month');
 }
 function showWeekReport(idx){
-  bottomMode='week';
+  bottomMode='week';curWeekIdx=idx;
   ['agenda-box','journal-box','month-report-box'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('week-report-box').style.display='block';
-  document.getElementById('week-report-title').textContent=`${curMonth}월 ${idx+1}주차 주간보고`;
+  const period=getWeekReportPeriod(idx);
+  document.getElementById('week-report-title').textContent=`${period.label} 주간보고`;
+  loadReport('week');
 }
 function genReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
-  ta.value='AI가 보고서를 생성하고 있습니다...';
-  setTimeout(()=>{
-    ta.value=type==='month'
-      ?'월간보고\n\n이번 달 업무 이슈 현황 및 진행 요약입니다.'
-      :'주간보고\n\n이번 주 주요 업무 진행 현황 요약입니다.';
-  },1200);
+  ta.value=renderReportAiPayloadPreview(type);
 }
 function changeMonth(dir){
   curMonth+=dir;
   if(curMonth>12){curMonth=1;curYear++;}
   if(curMonth<1){curMonth=12;curYear--;}
   document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;
-  selDate=null;bottomMode='none';
+  selDate=null;bottomMode='none';curWeekIdx=null;
   ['month-report-box','week-report-box','agenda-box','journal-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
 function goToday(){
-  const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;
+  const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;curWeekIdx=null;
   document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;
   renderCalendar();selectDate(t.getDate());
 }
