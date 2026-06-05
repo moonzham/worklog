@@ -141,10 +141,16 @@ function getReportPeriod(type){
 function dateInRange(date,startDate,endDate){
   return date>=startDate&&date<=endDate;
 }
+function getIssueReportStartDate(iss){
+  return iss.devStart||'';
+}
+function getIssueReportEndDate(iss){
+  return iss.prodDate||iss.targetDate||'9999-12-31';
+}
 function issueOverlapsPeriod(iss,startDate,endDate){
-  const start=iss.devStart||iss.issueRegDate||iss.targetDate||iss.devEnd||iss.prodDate;
+  const start=getIssueReportStartDate(iss);
   if(!start)return false;
-  const end=iss.prodDate||iss.devEnd||iss.targetDate||start;
+  const end=getIssueReportEndDate(iss);
   return start<=endDate&&end>=startDate;
 }
 function countBy(list,fn){
@@ -162,22 +168,15 @@ function buildReportAiPayload(type){
     .map(([date,content])=>({date,content}));
   const issues=ISSUES
     .filter(iss=>iss.useYn!=='N'&&issueOverlapsPeriod(iss,period.startDate,period.endDate))
-    .sort((a,b)=>(a.devStart||a.issueRegDate||'').localeCompare(b.devStart||b.issueRegDate||''))
+    .sort((a,b)=>getIssueReportStartDate(a).localeCompare(getIssueReportStartDate(b)))
     .map(iss=>({
-      seq:iss.seq,
-      id:iss.id,
-      project:iss.project,
+      issueNo:iss.id||iss.seq,
+      issueTitle:iss.title,
       projectName:getProjectName(iss.project),
-      title:iss.title,
-      priority:iss.priority,
-      priorityName:P_LABEL[iss.priority]||iss.priority||'미지정',
       status:iss.status,
-      link:iss.link,
-      issueRegDate:iss.issueRegDate,
-      targetDate:iss.targetDate,
-      devStart:iss.devStart,
-      devEnd:iss.devEnd,
-      prodDate:iss.prodDate,
+      productionDate:iss.prodDate,
+      reportStartDate:getIssueReportStartDate(iss),
+      reportEndDate:getIssueReportEndDate(iss),
       progressNote:iss.progressNote
     }));
   return {
@@ -190,14 +189,45 @@ function buildReportAiPayload(type){
       journalCount:journals.length,
       issueCount:issues.length,
       statusCounts:countBy(issues,iss=>iss.status),
-      priorityCounts:countBy(issues,iss=>iss.priorityName),
       projectCounts:countBy(issues,iss=>iss.projectName)
     }
   };
 }
+function buildReportPrompt(payload){
+  const reportName=payload.reportType==='month'?'월간보고':'주간보고';
+  const periodText=`${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})`;
+  const focusText=payload.reportType==='month'
+    ?'이번달에 어느 이슈에 대해 어떤 작업을 했는지'
+    :'이번주에 어느 이슈에 대해 어떤 작업을 했는지';
+  return [
+    `너는 업무일지와 이슈 데이터를 바탕으로 ${reportName}를 작성하는 비서다.`,
+    '',
+    `보고서 기간: ${periodText}`,
+    '',
+    '작성 기준:',
+    `- ${focusText}가 드러나도록 작성한다.`,
+    '- 주요 성과와 진행중 업무를 중심으로 작성한다.',
+    '- 업무일지 journals[].content 원문을 가장 우선 근거로 사용한다.',
+    '- issues[]는 이슈번호, 제목, 상태, 프로젝트, 운영반영일, 진행사항을 확인하기 위한 보조 자료로 사용한다.',
+    '- 특정 이슈와 관련된 내용을 작성할 때는 issueNo와 issueTitle을 반드시 함께 노출한다.',
+    '- 데이터에 없는 내용은 추측하지 말고, 확인되지 않은 완료/배포/일정은 단정하지 않는다.',
+    '- 보고서 본문에는 payload, JSON, 데이터 미리보기 같은 내부 표현을 언급하지 않는다.',
+    '- 한국어로 자연스럽고 간결하게 작성한다.',
+    '',
+    '출력 형식:',
+    '- 제목은 쓰지 말고 본문만 작성한다.',
+    '- 주요 성과, 진행중 업무를 중심으로 구성한다.',
+    '- 필요하면 리스크/지연 또는 다음 계획을 짧게 덧붙인다.',
+    '- 관련 데이터가 거의 없으면 데이터가 부족하다고 간단히 적는다.',
+    '',
+    '보고서 작성용 데이터:',
+    JSON.stringify(payload,null,2)
+  ].join('\n');
+}
 function renderReportAiPayloadPreview(type){
   const payload=buildReportAiPayload(type);
-  return `AI 전송 전 데이터 미리보기\n${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})\n\n${JSON.stringify(payload,null,2)}`;
+  const prompt=buildReportPrompt(payload);
+  return `AI 전송 전 데이터/프롬프트 미리보기\n${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})\n\n[PAYLOAD]\n${JSON.stringify(payload,null,2)}\n\n[PROMPT]\n${prompt}`;
 }
 async function loadReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
