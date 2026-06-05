@@ -22,44 +22,56 @@ async function dailySave(date,content){
 /* ── ISSUE CRUD ── */
 async function issueLoad(){
   try{
-    const data=await sheetsGet('ISSUE!A2:O');
-    return (data.values||[]).filter(r=>r[12]!=='N').map(r=>({
-      id:r[0]||'',project:r[1]||'',title:r[2]||'',priority:r[3]||'mid',
-      status:r[4]||'진행예정',link:r[5]||'',issueRegDate:r[6]||'',
-      targetDate:r[7]||'',devStart:r[8]||'',devEnd:r[9]||'',
-      prodDate:r[10]||'',progressNote:r[11]||'',useYn:r[12]||'Y',
-      createdAt:r[13]||'',updatedAt:r[14]||''
+    const data=await sheetsGet('ISSUE!A2:P');
+    return (data.values||[]).filter(r=>r[13]!=='N').map(r=>({
+      seq:r[0]||'',id:r[1]||'',project:r[2]||'',title:r[3]||'',priority:r[4]||'mid',
+      status:r[5]||'진행예정',link:r[6]||'',issueRegDate:r[7]||'',
+      targetDate:r[8]||'',devStart:r[9]||'',devEnd:r[10]||'',
+      prodDate:r[11]||'',progressNote:r[12]||'',useYn:r[13]||'Y',
+      createdAt:r[14]||'',updatedAt:r[15]||''
     }));
   }catch(e){console.error('issueLoad',e);return[];}
+}
+async function genIssueSeq(){
+  /* 기존 마지막 ISSUE_SEQ 읽어서 +1 채번 */
+  try{
+    const data=await sheetsGet('ISSUE!A2:A');
+    const vals=(data.values||[]).map(r=>r[0]||'').filter(v=>v.startsWith('WL-'));
+    if(!vals.length)return'WL-000001';
+    const nums=vals.map(v=>parseInt(v.replace('WL-',''),10)).filter(n=>!isNaN(n));
+    const next=Math.max(...nums)+1;
+    return'WL-'+String(next).padStart(6,'0');
+  }catch(e){return'WL-000001';}
 }
 async function issueSave(iss,isNew){
   const now=nowStr();
   if(isNew){
-    await sheetsAppend('ISSUE!A:O',[[
-      iss.id,iss.project,iss.title,iss.priority,iss.status,iss.link,
+    const seq=await genIssueSeq();
+    await sheetsAppend('ISSUE!A:P',[[
+      seq,iss.id,iss.project,iss.title,iss.priority,iss.status,iss.link,
       iss.issueRegDate,iss.targetDate,iss.devStart,iss.devEnd,iss.prodDate,
       iss.progressNote,'Y',now,now
     ]]);
   } else {
-    const rows=await sheetsGet('ISSUE!A2:O');
+    const rows=await sheetsGet('ISSUE!A2:P');
     const vals=rows.values||[];
-    const idx=vals.findIndex(r=>r[0]===iss.id);
+    const idx=vals.findIndex(r=>r[0]===iss.seq);
     if(idx>=0){
-      await sheetsUpdate(`ISSUE!A${idx+2}:O${idx+2}`,[[
-        iss.id,iss.project,iss.title,iss.priority,iss.status,iss.link,
+      await sheetsUpdate(`ISSUE!A${idx+2}:P${idx+2}`,[[
+        iss.seq,iss.id,iss.project,iss.title,iss.priority,iss.status,iss.link,
         iss.issueRegDate,iss.targetDate,iss.devStart,iss.devEnd,iss.prodDate,
-        iss.progressNote,'Y',vals[idx][13]||now,now
+        iss.progressNote,'Y',vals[idx][14]||now,now
       ]]);
     }
   }
 }
-async function issueDelete(issueId){
-  const rows=await sheetsGet('ISSUE!A2:O');
+async function issueDelete(seq){
+  const rows=await sheetsGet('ISSUE!A2:P');
   const vals=rows.values||[];
-  const idx=vals.findIndex(r=>r[0]===issueId);
+  const idx=vals.findIndex(r=>r[0]===seq);
   if(idx>=0){
     const now=nowStr();
-    await sheetsUpdate(`ISSUE!M${idx+2}:O${idx+2}`,[['N',vals[idx][13]||now,now]]);
+    await sheetsUpdate(`ISSUE!N${idx+2}:P${idx+2}`,[['N',vals[idx][14]||now,now]]);
   }
 }
 
@@ -319,8 +331,8 @@ window.addEventListener('popstate',e=>{
   switchTab(t,true);
 });
 
-function openDetail(issueId,fromGantt){
-  const iss=ISSUES.find(i=>i.id===issueId);if(!iss)return;
+function openDetail(seq,fromGantt){
+  const iss=ISSUES.find(i=>i.seq===seq);if(!iss)return;
   fillDetailForm(iss);
   const btn=document.getElementById('detail-back-btn');
   if(fromGantt){btn.textContent='← 간트차트로';btn.onclick=()=>switchTab('gantt');}
@@ -334,6 +346,7 @@ function openNewTask(){
   prevTab='tasks';switchTab('detail');
 }
 function fillDetailForm(iss){
+  document.getElementById('d-seq').value=iss?iss.seq:'';
   document.getElementById('d-id').value=iss?iss.id:'';
   document.getElementById('d-title').value=iss?iss.title:'';
   document.getElementById('d-project').value=iss?iss.project:'DARWIN';
@@ -399,9 +412,10 @@ function renderCalendar(){
         issues.slice(0,3).forEach(iss=>{
           const chip=document.createElement('div');chip.className='issue-chip';
           chip.style.background=chipColor(iss);
+          const label=iss.id||iss.seq;
           const shortTitle=iss.title.length>14?iss.title.slice(0,14)+'…':iss.title;
-          chip.textContent=iss.id+' '+shortTitle;chip.title=iss.title;
-          chip.onclick=(e)=>{e.stopPropagation();prevTab='calendar';openDetail(iss.id);};
+          chip.textContent=label+' '+shortTitle;chip.title=iss.title;
+          chip.onclick=(e)=>{e.stopPropagation();prevTab='calendar';openDetail(iss.seq);};
           td.appendChild(chip);
         });
         if(issues.length>3){const m=document.createElement('div');m.className='chip-more';m.textContent=`+${issues.length-3}`;td.appendChild(m);}
@@ -445,11 +459,11 @@ function selectDate(d){
   issues.forEach(iss=>{
     const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
     const item=document.createElement('div');item.className='agenda-item';
-    item.innerHTML=`<div class="agenda-chip" style="background:${chipColor(iss)}">${iss.id}</div>
+    item.innerHTML=`<div class="agenda-chip" style="background:${chipColor(iss)}">${iss.id||iss.seq}</div>
     <div class="agenda-title">${iss.title}</div>
     <div class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</div>
     <div class="agenda-arrow">›</div>`;
-    item.onclick=()=>{prevTab='calendar';openDetail(iss.id);};
+    item.onclick=()=>{prevTab='calendar';openDetail(iss.seq);};
     list.appendChild(item);
   });
   renderCalendar();
@@ -532,8 +546,8 @@ function makeJlistItem(dt){
     issHtml=`<div style="margin-top:2px">${issues.map(i=>{
       const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
       /* 이슈행은 별도 div로 클릭 이벤트 분리 */
-      return `<div class="issue-row" data-id="${i.id}">
-        <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
+      return `<div class="issue-row" data-seq="${i.seq}">
+        <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id||i.seq}</div>
         <div class="issue-row-title">${i.title}</div>
         <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
         <div class="issue-row-arrow">›</div>
@@ -550,7 +564,7 @@ function makeJlistItem(dt){
     row.onclick=(e)=>{
       e.stopPropagation();
       prevTab='journal';
-      openDetail(row.dataset.id);
+      openDetail(row.dataset.seq);
     };
   });
   return item;
@@ -615,11 +629,11 @@ function openJournalDetail(dt,isNew){
   issues.forEach(iss=>{
     const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
     const row=document.createElement('div');row.className='issue-row';
-    row.innerHTML=`<div class="issue-row-chip" style="background:${chipColor(iss)}">${iss.id}</div>
+    row.innerHTML=`<div class="issue-row-chip" style="background:${chipColor(iss)}">${iss.id||iss.seq}</div>
     <div class="issue-row-title">${iss.title}</div>
     <div class="issue-row-status" style="background:${s.bg}">${iss.status}</div>
     <div class="issue-row-arrow">›</div>`;
-    row.onclick=()=>{prevTab='jdetail';openDetail(iss.id);};
+    row.onclick=()=>{prevTab='jdetail';openDetail(iss.seq);};
     issBox.appendChild(row);
   });
   prevTab='journal';switchTab('jdetail');
@@ -661,10 +675,12 @@ function renderTaskList(filter='all'){
   list.forEach(iss=>{
     const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
     const tr=document.createElement('tr');
-    tr.onclick=()=>{prevTab='tasks';openDetail(iss.id);};
-    const numCell=iss.link
-      ?`<a class="task-num-link" href="${iss.link}" target="_blank" onclick="event.stopPropagation()">${iss.id}</a>`
-      :`<span class="task-num-plain">${iss.id}</span>`;
+    tr.onclick=()=>{prevTab='tasks';openDetail(iss.seq);};
+    const numCell=iss.id
+      ?(iss.link
+        ?`<a class="task-num-link" href="${iss.link}" target="_blank" onclick="event.stopPropagation()">${iss.id}</a>`
+        :`<span class="task-num-plain">${iss.id}</span>`)
+      :`<span class="task-num-plain" style="color:var(--text3)">미등록</span>`;
     tr.innerHTML=`<td><span class="priority-badge" style="background:${P_COLOR[iss.priority]||P_COLOR.mid}">${P_LABEL[iss.priority]||'중간'}</span></td>
     <td>${numCell}</td>
     <td style="font-size:12px;color:var(--text)">${iss.title||''}</td>
@@ -684,14 +700,15 @@ function filterTask(btn,f){
 async function saveIssueDetail(){
   const btn=document.querySelector('#view-detail .btn-sm.primary');
   btn.textContent='저장 중...';btn.disabled=true;
+  const seq=document.getElementById('d-seq').value.trim();
   const id=document.getElementById('d-id').value.trim();
   const title=document.getElementById('d-title').value.trim();
-  if(!id){alert('이슈코드는 필수입니다.');btn.textContent='저장';btn.disabled=false;return;}
   if(!title){alert('이슈 제목은 필수입니다.');btn.textContent='저장';btn.disabled=false;return;}
   const linkInput=document.getElementById('d-link-input').value.trim();
   const linkDisplay=document.getElementById('d-link-display').href;
   const link=linkInput||(linkDisplay==='#'||linkDisplay===window.location.href?'':linkDisplay);
   const iss={
+    seq,
     id,
     project:document.getElementById('d-project').value,
     title,
@@ -705,7 +722,7 @@ async function saveIssueDetail(){
     prodDate:document.getElementById('d-deploy').value||'',
     progressNote:document.getElementById('d-progress').value||'',
   };
-  const isNew=!ISSUES.find(i=>i.id===id);
+  const isNew=!seq; /* seq 없으면 신규 */
   try{
     await issueSave(iss,isNew);
     ISSUES=await issueLoad();
@@ -766,11 +783,11 @@ function doSearch(){
       const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
       const item=document.createElement('div');item.className='search-result-item';
       item.innerHTML=`<div class="sri-top">
-        <span class="sri-chip" style="background:${chipColor(iss)}">${iss.id}</span>
+        <span class="sri-chip" style="background:${chipColor(iss)}">${iss.id||iss.seq}</span>
         <span class="sri-title">${highlight(iss.title)}</span>
         <span class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</span>
       </div>${iss.progressNote?`<div class="sri-body">${highlight(iss.progressNote)}</div>`:''}`;
-      item.onclick=()=>{prevTab='search';openDetail(iss.id);};
+      item.onclick=()=>{prevTab='search';openDetail(iss.seq);};
       issueEl.appendChild(item);
     });
   }
@@ -815,8 +832,8 @@ function renderGantt(){
     const barL=(barStart-1)*cw;
     const barW=(barEnd-barStart+1)*cw;
     const c=chipColor(iss);
-    html+=`<div class="gantt-row" onclick="openDetail('${iss.id}',true)">
-    <div class="gantt-task-info"><div class="gantt-task-id">${iss.id}</div><div class="gantt-task-name">${iss.title}</div></div>
+    html+=`<div class="gantt-row" onclick="openDetail('${iss.seq}',true)">
+    <div class="gantt-task-info"><div class="gantt-task-id">${iss.id||iss.seq}</div><div class="gantt-task-name">${iss.title}</div></div>
     <div style="flex:1;position:relative;height:38px;display:flex">
       ${days.map(d=>{const dow=new Date(yr,mo-1,d).getDay();const hol=HOLIDAYS[mo]&&HOLIDAYS[mo][d];return `<div class="gantt-day-cell${dow===0||dow===6||hol?' weekend':''}"></div>`;}).join('')}
       <div class="gantt-bar" style="left:${barL}px;width:${barW}px;background:${c}"></div>

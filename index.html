@@ -172,7 +172,8 @@
       <button class="back-btn" id="detail-back-btn" onclick="goBack()">← 목록으로</button>
       <div class="detail-card">
         <div class="detail-id-row">
-          <input class="detail-id-input" id="d-id" placeholder="이슈코드 입력 (예: DAR-145)" />
+          <input type="hidden" id="d-seq">
+          <input class="detail-id-input" id="d-id" placeholder="이슈코드 (선택, 예: DAR-145)" />
         </div>
         <input class="detail-title-input" id="d-title" placeholder="이슈 제목을 입력하세요" />
         <div class="detail-grid">
