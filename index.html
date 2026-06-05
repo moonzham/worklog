@@ -829,12 +829,12 @@ function fillDetailForm(iss){
   document.getElementById('d-project').value=iss?iss.project:'DARWIN';
   document.getElementById('d-priority').value=iss?iss.priority:'mid';
   document.getElementById('d-status').value=iss?iss.status:'진행예정';
-  document.getElementById('d-created').value=iss?iss.created:'';
-  document.getElementById('d-due').value=iss?iss.due:'';
-  document.getElementById('d-devstart').value=iss?iss.devstart:'';
-  document.getElementById('d-devend').value=iss?iss.devend:'';
-  document.getElementById('d-deploy').value=iss?iss.deploy:'';
-  document.getElementById('d-progress').value=iss?iss.progress:'';
+  document.getElementById('d-created').value=iss?iss.issueRegDate:'';
+  document.getElementById('d-due').value=iss?iss.targetDate:'';
+  document.getElementById('d-devstart').value=iss?iss.devStart:'';
+  document.getElementById('d-devend').value=iss?iss.devEnd:'';
+  document.getElementById('d-deploy').value=iss?iss.prodDate:'';
+  document.getElementById('d-progress').value=iss?iss.progressNote:'';
   const link=iss?iss.link:'';
   const disp=document.getElementById('d-link-display');
   if(link){disp.textContent=link;disp.href=link;}
@@ -868,7 +868,7 @@ function renderCalendar(){
       const blank=(wk===0&&dow<firstDay);
       if(!blank&&d<=daysInMonth){
         const dd=d;
-        const isToday=(curYear===2026&&curMonth===6&&dd===3);
+        const todayObj=new Date();const isToday=(curYear===todayObj.getFullYear()&&curMonth===todayObj.getMonth()+1&&dd===todayObj.getDate());
         const hol=HOLIDAYS[curMonth]&&HOLIDAYS[curMonth][dd];
         if(dow===0)td.classList.add('td-sun');
         if(dow===6)td.classList.add('td-sat');
@@ -921,7 +921,7 @@ function selectDate(d){
   document.getElementById('journal-box').style.display='block';
   document.getElementById('agenda-box').style.display='block';
   const dow=new Date(curYear,curMonth-1,d).getDay();
-  const isToday=curYear===2026&&curMonth===6&&d===3;
+  const todayObj2=new Date();const isToday=curYear===todayObj2.getFullYear()&&curMonth===todayObj2.getMonth()+1&&d===todayObj2.getDate();
   document.getElementById('journal-box-label').textContent=`${curYear}년 ${curMonth}월 ${d}일 업무일지`;
   const text=JOURNALS[curSelDateKey]||'';
   const viewEl=document.getElementById('journal-view');
@@ -1004,15 +1004,30 @@ function changeMonth(dir){
   ['month-report-box','week-report-box','agenda-box','journal-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
-function goToday(){curYear=2026;curMonth=6;document.getElementById('month-label').textContent='2026년 6월';renderCalendar();selectDate(3);}
+function goToday(){const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;renderCalendar();selectDate(t.getDate());}
 
 /* ── JOURNAL LIST ── */
 function renderJournalList(){
   const el=document.getElementById('journal-entries');el.innerHTML='';
-  const dates=['2026-06-03','2026-06-02','2026-06-01','2026-05-31','2026-05-30'];
+  /* JOURNALS에 저장된 날짜 + 오늘 포함해서 최근 30일치 동적 생성 */
+  const today=new Date();
+  const dateSet=new Set(Object.keys(JOURNALS));
+  for(let i=0;i<30;i++){
+    const d2=new Date(today);d2.setDate(today.getDate()-i);
+    dateSet.add(d2.toISOString().slice(0,10));
+  }
+  const dates=[...dateSet].sort((a,b)=>b.localeCompare(a)).slice(0,30);
   dates.forEach(dt=>{
-    const d=new Date(dt);const parts=dt.split('-');
-    const issues=ISSUES.filter(i=>i.dates&&i.dates.includes(parseInt(parts[2]))&&parseInt(parts[1])===6);
+    const d=new Date(dt);
+    const parts=dt.split('-');
+    const yr=parseInt(parts[0]),mo=parseInt(parts[1]),day=parseInt(parts[2]);
+    const dateStr=dt;
+    const issues=ISSUES.filter(i=>{
+      if(!i.devStart||i.useYn==='N')return false;
+      const endDate=i.prodDate||i.targetDate;
+      if(!endDate)return false;
+      return i.devStart<=dateStr&&endDate>=dateStr;
+    });
     const text=JOURNALS[dt];
     const item=document.createElement('div');item.className='jlist-item';
     item.onclick=()=>openJournalDetail(dt);
@@ -1045,8 +1060,12 @@ function openJournalDetail(dt,isNew){
   document.getElementById('jd-save-btn').className='btn-sm primary';
   document.getElementById('unsaved-hint').style.display='none';
   /* 이슈 목록 */
-  const parts=dt.split('-');
-  const issues=ISSUES.filter(i=>i.dates&&i.dates.includes(parseInt(parts[2]))&&parseInt(parts[1])===6);
+  const issues=ISSUES.filter(i=>{
+    if(!i.devStart||i.useYn==='N')return false;
+    const endDate=i.prodDate||i.targetDate;
+    if(!endDate)return false;
+    return i.devStart<=dt&&endDate>=dt;
+  });
   const issBox=document.getElementById('jd-issues');issBox.innerHTML='';
   const sec=document.getElementById('jd-issues-section');
   sec.style.display=issues.length?'block':'none';
@@ -1232,15 +1251,15 @@ function doSearch(){
 /* ── GANTT ── */
 function renderGantt(){
   const wrap=document.getElementById('gantt-wrap');
+  if(!wrap)return;
   const today=new Date();
   const yr=today.getFullYear(),mo=today.getMonth()+1;
   const daysInMonth=new Date(yr,mo,0).getDate();
   const days=Array.from({length:daysInMonth},(_,i)=>i+1);
   const todayD=today.getDate();
   const cw=26;
-  const pad=n=>String(n).padStart(2,'0');
 
-  if(!ISSUES.length){
+  if(!ISSUES||!ISSUES.length){
     wrap.innerHTML='<div style="text-align:center;color:var(--text3);padding:3rem;font-size:13px">등록된 업무가 없습니다</div>';
     return;
   }
@@ -1255,11 +1274,12 @@ function renderGantt(){
   html+=`</div></div>`;
 
   ISSUES.forEach(iss=>{
-    if(!iss.devStart)return;
+    if(!iss||!iss.devStart)return;
     const endDate=iss.prodDate||iss.targetDate;
     if(!endDate)return;
-    const startD=new Date(iss.devStart);
-    const endD=new Date(endDate);
+    let startD,endD;
+    try{startD=new Date(iss.devStart);endD=new Date(endDate);}catch(e){return;}
+    if(isNaN(startD.getTime())||isNaN(endD.getTime()))return;
     const monthStart=new Date(yr,mo-1,1);
     const monthEnd=new Date(yr,mo-1,daysInMonth);
     if(endD<monthStart||startD>monthEnd)return;
