@@ -209,3 +209,6 @@ td.td-hol .day-num{color:var(--red)!important}
 .gantt-today-line{position:absolute;top:0;bottom:0;width:1.5px;background:var(--red);z-index:2;opacity:.5}
 .btn-sm.danger{color:var(--red);border-color:var(--red)}
 .btn-sm.danger:hover{background:var(--red);color:#fff}
+.gantt-mon-hdr{font-size:10px;font-weight:600;color:var(--text2);padding:4px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap;overflow:hidden}
+.gantt-today-hdr{color:var(--red);font-weight:700}
+.gantt-day-cell.gantt-today-col{background:rgba(201,64,64,.06)}

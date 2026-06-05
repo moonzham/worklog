@@ -3,7 +3,7 @@ async function deleteIssueDetail(){
   const seq=document.getElementById('d-seq').value.trim();
   if(!seq)return;
   const title=document.getElementById('d-title').value.trim();
-  if(!confirm(`"${title}" 이슈를 삭제하시겠습니까?\n(USE_YN=N 처리)`))return;
+  if(!confirm(`"${title}" 이슈를 삭제하시겠습니까?`))return;
   try{
     await issueDelete(seq);
     ISSUES=await issueLoad();
@@ -119,8 +119,16 @@ async function saveIssueDetail(){
     }
   }
   const linkInput=document.getElementById('d-link-input').value.trim();
-  const linkDisplay=document.getElementById('d-link-display').href;
-  const link=linkInput||(linkDisplay==='#'||linkDisplay===window.location.href?'':linkDisplay);
+  const linkDisplayEl=document.getElementById('d-link-display');
+  const linkDisplayHref=linkDisplayEl.href;
+  /* linkInput 우선, 없으면 display에 실제 URL이 있는지 확인 (# 또는 현재 페이지면 빈값) */
+  const link=linkInput||(
+    linkDisplayHref&&
+    linkDisplayHref!=='#'&&
+    linkDisplayHref!==window.location.href&&
+    !linkDisplayHref.endsWith('#')
+    ?linkDisplayHref:''
+  );
   const iss={
     seq,id,project,title,
     priority:document.getElementById('d-priority').value,
@@ -149,50 +157,118 @@ async function saveIssueDetail(){
 /* ── GANTT ── */
 function renderGantt(){
   const wrap=document.getElementById('gantt-wrap');
+  const scroll=document.querySelector('.gantt-scroll');
   if(!wrap)return;
-  const yr=ganttYear,mo=ganttMonth;
+
+  /* 월 레이블 제거 (전체 기간 방식이므로 불필요) */
   const label=document.getElementById('gantt-month-label');
-  if(label)label.textContent=`${yr}년 ${mo}월`;
-  const today=new Date();
-  const todayYr=today.getFullYear(),todayMo=today.getMonth()+1,todayD=today.getDate();
-  const daysInMonth=new Date(yr,mo,0).getDate();
-  const days=Array.from({length:daysInMonth},(_,i)=>i+1);
-  const cw=26;
-  if(!ISSUES||!ISSUES.length){
+  if(label)label.textContent='';
+
+  const activeIssues=(ISSUES||[]).filter(i=>i.devStart);
+  if(!activeIssues.length){
     wrap.innerHTML='<div style="text-align:center;color:var(--text3);padding:3rem;font-size:13px">등록된 업무가 없습니다</div>';
     return;
   }
-  let html=`<div style="display:flex;flex-direction:column">`;
-  html+=`<div class="gantt-hdr-row"><div class="gantt-task-col">업무</div><div style="display:flex">`;
-  days.forEach(d=>{
-    const dow=new Date(yr,mo-1,d).getDay();
-    const hol=HOLIDAYS[mo]&&HOLIDAYS[mo][d];
-    html+=`<div class="gantt-day-hdr${dow===0||hol?' td-sun':dow===6?' td-sat':''}">${d}</div>`;
+
+  const today=new Date();today.setHours(0,0,0,0);
+  const todayStr2=today.toISOString().slice(0,10);
+
+  /* 전체 기간 계산 */
+  const allStarts=activeIssues.map(i=>new Date(i.devStart+'T00:00:00'));
+  const allEnds=activeIssues.map(i=>{
+    const e=i.prodDate||i.targetDate;
+    return e?new Date(e+'T00:00:00'):today;
   });
-  html+=`</div></div>`;
-  ISSUES.forEach(iss=>{
-    if(!iss||!iss.devStart)return;
-    /* 종료일 없으면 9999-12-31 (무기한 진행) */
-    const endDate=iss.prodDate||iss.targetDate||'9999-12-31';
-    let startD,endD;
-    try{startD=new Date(iss.devStart);endD=new Date(endDate);}catch(e){return;}
-    if(isNaN(startD.getTime())||isNaN(endD.getTime()))return;
-    const monthStart=new Date(yr,mo-1,1);
-    const monthEnd=new Date(yr,mo-1,daysInMonth);
-    if(endD<monthStart||startD>monthEnd)return;
-    const barStart=Math.max(1,startD.getMonth()+1===mo&&startD.getFullYear()===yr?startD.getDate():1);
-    const barEnd=Math.min(daysInMonth,endD.getMonth()+1===mo&&endD.getFullYear()===yr?endD.getDate():daysInMonth);
-    const barL=(barStart-1)*cw;
-    const barW=(barEnd-barStart+1)*cw;
+  /* 최소 시작일: 이슈 중 가장 이른 날, 최대 종료일: 오늘+30 or 이슈 중 가장 늦은 날 중 큰 것 */
+  let minDate=new Date(Math.min(...allStarts));
+  let maxDate=new Date(Math.max(...allEnds,today.getTime()+30*86400000));
+
+  /* 월 단위로 앞뒤 여유 */
+  minDate=new Date(minDate.getFullYear(),minDate.getMonth(),1);
+  maxDate=new Date(maxDate.getFullYear(),maxDate.getMonth()+1,0);
+
+  /* 전체 일수 배열 생성 */
+  const dates=[];
+  for(let d=new Date(minDate);d<=maxDate;d.setDate(d.getDate()+1)){
+    dates.push(d.toISOString().slice(0,10));
+  }
+  const cw=26; /* 하루 너비 */
+
+  /* 날짜→인덱스 맵 */
+  const dateIdx={};
+  dates.forEach((dt,i)=>dateIdx[dt]=i);
+
+  /* ── 헤더: 월 표시 ── */
+  let monthHdr='';
+  let mStart=0,curMon='';
+  dates.forEach((dt,i)=>{
+    const mon=dt.slice(0,7);
+    if(mon!==curMon){
+      if(curMon) monthHdr+=`<div class="gantt-mon-hdr" style="width:${(i-mStart)*cw}px">${curMon}</div>`;
+      curMon=mon;mStart=i;
+    }
+  });
+  monthHdr+=`<div class="gantt-mon-hdr" style="width:${(dates.length-mStart)*cw}px">${curMon}</div>`;
+
+  /* ── 헤더: 일 표시 ── */
+  let dayHdr='';
+  dates.forEach(dt=>{
+    const d=new Date(dt+'T00:00:00');
+    const dow=d.getDay();
+    const isToday=dt===todayStr2;
+    const hol=HOLIDAYS[d.getMonth()+1]&&HOLIDAYS[d.getMonth()+1][d.getDate()];
+    let cls='gantt-day-hdr';
+    if(dow===0||hol) cls+=' td-sun';
+    else if(dow===6) cls+=' td-sat';
+    if(isToday) cls+=' gantt-today-hdr';
+    dayHdr+=`<div class="${cls}">${d.getDate()}</div>`;
+  });
+
+  /* ── 이슈 행 ── */
+  let rows='';
+  activeIssues.forEach(iss=>{
+    const startDt=iss.devStart;
+    const endDt=iss.prodDate||iss.targetDate||todayStr2;
+    const si=dateIdx[startDt]??0;
+    const ei=dateIdx[endDt]??dates.length-1;
+    const barL=si*cw;
+    const barW=Math.max((ei-si+1)*cw,cw);
     const c=chipColor(iss);
-    html+=`<div class="gantt-row" onclick="openDetail('${iss.seq}',true)">
-    <div class="gantt-task-info"><div class="gantt-task-id">${iss.id||iss.seq}</div><div class="gantt-task-name">${iss.title}</div></div>
-    <div style="flex:1;position:relative;height:38px;display:flex">
-      ${days.map(d=>{const dow=new Date(yr,mo-1,d).getDay();const hol=HOLIDAYS[mo]&&HOLIDAYS[mo][d];return `<div class="gantt-day-cell${dow===0||dow===6||hol?' weekend':''}"></div>`;}).join('')}
-      <div class="gantt-bar" style="left:${barL}px;width:${barW}px;background:${c}"></div>
-      ${yr===todayYr&&mo===todayMo?`<div class="gantt-today-line" style="left:${(todayD-1)*cw+cw/2}px"></div>`:''}
-    </div></div>`;
+
+    /* 셀 배경 (주말 표시) */
+    const cells=dates.map(dt=>{
+      const dow=new Date(dt+'T00:00:00').getDay();
+      const isToday=dt===todayStr2;
+      return `<div class="gantt-day-cell${dow===0||dow===6?' weekend':''}${isToday?' gantt-today-col':''}"></div>`;
+    }).join('');
+
+    rows+=`<div class="gantt-row" onclick="openDetail('${iss.seq}',true)">
+      <div class="gantt-task-info">
+        <div class="gantt-task-id">${iss.id||iss.seq}</div>
+        <div class="gantt-task-name">${iss.title}</div>
+      </div>
+      <div style="flex:1;position:relative;height:38px;display:flex">
+        ${cells}
+        <div class="gantt-bar" style="left:${barL}px;width:${barW}px;background:${c};top:12px"></div>
+      </div>
+    </div>`;
   });
-  html+=`</div>`;
-  wrap.innerHTML=html;
+
+  const totalW=dates.length*cw;
+  wrap.innerHTML=`<div style="display:flex;flex-direction:column;min-width:${totalW+210}px">
+    <div class="gantt-hdr-row">
+      <div class="gantt-task-col">업무</div>
+      <div style="display:flex;flex-direction:column;flex:1">
+        <div style="display:flex">${monthHdr}</div>
+        <div style="display:flex">${dayHdr}</div>
+      </div>
+    </div>
+    ${rows}
+  </div>`;
+
+  /* 오늘 기준으로 스크롤 (오늘이 화면 중앙쯤 오도록) */
+  if(scroll&&dateIdx[todayStr2]!==undefined){
+    const todayX=dateIdx[todayStr2]*cw+210;
+    scroll.scrollLeft=Math.max(0,todayX-scroll.clientWidth/2);
+  }
 }
