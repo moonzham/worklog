@@ -21,7 +21,7 @@ function getProjectName(code){
   return p?p.name:code;
 }
 
-let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none';
+let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none',curWeekIdx=null;
 let jdOriginal='',jdDirty=false,curSelDateKey='';
 
 let jlistAllDates=[];
