@@ -229,6 +229,13 @@ function renderReportAiPayloadPreview(type){
   const prompt=buildReportPrompt(payload);
   return `AI 전송 전 데이터/프롬프트 미리보기\n${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})\n\n[PAYLOAD]\n${JSON.stringify(payload,null,2)}\n\n[PROMPT]\n${prompt}`;
 }
+function mergeGeneratedReport(generatedText,existingText){
+  const generated=(generatedText||'').trim();
+  const existing=(existingText||'').trim();
+  if(!generated)return existing;
+  if(!existing)return generated;
+  return `${generated}\n\n=================================\n\n${existing}`;
+}
 async function loadReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
   const period=getReportPeriod(type);
@@ -270,9 +277,19 @@ function showWeekReport(idx){
   document.getElementById('week-report-title').textContent=`${period.label} 주간보고`;
   loadReport('week');
 }
-function genReport(type){
+async function genReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
-  ta.value=renderReportAiPayloadPreview(type);
+  const existingText=ta.value;
+  const payload=buildReportAiPayload(type);
+  const prompt=buildReportPrompt(payload);
+  ta.value='AI 보고서를 생성하는 중입니다...';
+  try{
+    const generatedText=await callGemini(prompt);
+    ta.value=mergeGeneratedReport(generatedText,existingText);
+  }catch(e){
+    ta.value=existingText;
+    alert('AI 보고서 생성 중 오류가 발생했습니다: '+e.message);
+  }
 }
 function changeMonth(dir){
   curMonth+=dir;
