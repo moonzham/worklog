@@ -57,3 +57,20 @@ function dateOffset(n){
   const d=new Date();d.setDate(d.getDate()-n);
   return d.toISOString().slice(0,10);
 }
+
+const AI_PROXY_URL = 'https://script.google.com/macros/s/AKfycbzqC0ln6Ja1t4QX24NiXuj5KFgN0cbMk64mm4XRLHbT11doTcgjs6h7IDB5TNDIzSRa/exec';
+
+async function callGemini(prompt) {
+  const res = await fetch(AI_PROXY_URL, {
+    method: 'POST',
+    body: JSON.stringify({ prompt })
+  });
+
+  const data = await res.json();
+
+  if (!data.ok) {
+    throw new Error(data.error || 'AI 호출 실패');
+  }
+
+  return data.text || '';
+}
