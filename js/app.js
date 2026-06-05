@@ -506,9 +506,12 @@ function goToday(){
 
 /* ── JOURNAL LIST ── */
 function buildJlistDates(){
-  /* 오늘 기준 과거 365일 날짜 + JOURNALS에 있는 날짜 → ASC 정렬 */
-  const dateSet=new Set(Object.keys(JOURNALS));
+  /* 오늘 기준 과거 365일 고정 생성 (미래 날짜 완전 제외) */
+  const today=todayStr();
+  const dateSet=new Set();
   for(let i=0;i<365;i++) dateSet.add(dateOffset(i));
+  /* JOURNALS에 있는 날짜 중 오늘 이전 것만 추가 */
+  Object.keys(JOURNALS).forEach(dt=>{ if(dt<=today) dateSet.add(dt); });
   jlistAllDates=[...dateSet].sort((a,b)=>a.localeCompare(b));
 }
 
