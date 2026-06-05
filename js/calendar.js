@@ -141,16 +141,10 @@ function getReportPeriod(type){
 function dateInRange(date,startDate,endDate){
   return date>=startDate&&date<=endDate;
 }
-function getIssueReportStartDate(iss){
-  return iss.devStart||'';
-}
-function getIssueReportEndDate(iss){
-  return iss.prodDate||iss.targetDate||'9999-12-31';
-}
 function issueOverlapsPeriod(iss,startDate,endDate){
-  const start=getIssueReportStartDate(iss);
+  const start=iss.devStart||iss.issueRegDate||iss.targetDate||iss.devEnd||iss.prodDate;
   if(!start)return false;
-  const end=getIssueReportEndDate(iss);
+  const end=iss.prodDate||iss.devEnd||iss.targetDate||start;
   return start<=endDate&&end>=startDate;
 }
 function countBy(list,fn){
@@ -168,7 +162,7 @@ function buildReportAiPayload(type){
     .map(([date,content])=>({date,content}));
   const issues=ISSUES
     .filter(iss=>iss.useYn!=='N'&&issueOverlapsPeriod(iss,period.startDate,period.endDate))
-    .sort((a,b)=>getIssueReportStartDate(a).localeCompare(getIssueReportStartDate(b)))
+    .sort((a,b)=>(a.devStart||a.issueRegDate||'').localeCompare(b.devStart||b.issueRegDate||''))
     .map(iss=>({
       seq:iss.seq,
       id:iss.id,
@@ -181,23 +175,15 @@ function buildReportAiPayload(type){
       link:iss.link,
       issueRegDate:iss.issueRegDate,
       targetDate:iss.targetDate,
+      devStart:iss.devStart,
+      devEnd:iss.devEnd,
       prodDate:iss.prodDate,
-      reportStartDate:getIssueReportStartDate(iss),
-      reportEndDate:getIssueReportEndDate(iss),
       progressNote:iss.progressNote
     }));
   return {
     reportType:type,
     generatedAt:nowStr(),
     period,
-    request:{
-      contentPolicy:'업무일지 content 전체 원문을 그대로 참고한다.',
-      issueDatePolicy:'이슈 포함 기준은 devStart부터 prodDate까지이며, prodDate가 없으면 targetDate를 종료일로 사용한다. devEnd는 기준으로 사용하지 않는다.',
-      outputFocus:type==='month'
-        ?'이번달에 어느 이슈에 대해 어떤 작업을 했는지, 주요 성과와 진행중 업무 중심으로 작성한다.'
-        :'이번주에 어느 이슈에 대해 어떤 작업을 했는지, 주요 성과와 진행중 업무 중심으로 작성한다.',
-      issueDisplayPolicy:'AI 결과에는 이슈번호(id 또는 seq)와 이슈제목(title)을 직접 노출한다.'
-    },
     journals,
     issues,
     summary:{
