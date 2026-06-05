@@ -1,3 +1,34 @@
+/* ── ISSUE 삭제 ── */
+async function deleteIssueDetail(){
+  const seq=document.getElementById('d-seq').value.trim();
+  if(!seq)return;
+  const title=document.getElementById('d-title').value.trim();
+  if(!confirm(`"${title}" 이슈를 삭제하시겠습니까?\n(USE_YN=N 처리)`))return;
+  try{
+    await issueDelete(seq);
+    ISSUES=await issueLoad();
+    renderTaskList();renderGantt();renderCalendar();
+    goBack();
+  }catch(e){
+    alert('삭제 중 오류가 발생했습니다: '+e.message);
+  }
+}
+
+/* ── 간트 월 상태 ── */
+let ganttYear=new Date().getFullYear();
+let ganttMonth=new Date().getMonth()+1;
+
+function changeGanttMonth(dir){
+  ganttMonth+=dir;
+  if(ganttMonth>12){ganttMonth=1;ganttYear++;}
+  if(ganttMonth<1){ganttMonth=12;ganttYear--;}
+  renderGantt();
+}
+function resetGanttMonth(){
+  const t=new Date();ganttYear=t.getFullYear();ganttMonth=t.getMonth()+1;
+  renderGantt();
+}
+
 /* ── TASK LIST ── */
 function renderTaskList(filter='all',projectFilter){
   if(projectFilter===undefined){
@@ -119,11 +150,13 @@ async function saveIssueDetail(){
 function renderGantt(){
   const wrap=document.getElementById('gantt-wrap');
   if(!wrap)return;
+  const yr=ganttYear,mo=ganttMonth;
+  const label=document.getElementById('gantt-month-label');
+  if(label)label.textContent=`${yr}년 ${mo}월`;
   const today=new Date();
-  const yr=today.getFullYear(),mo=today.getMonth()+1;
+  const todayYr=today.getFullYear(),todayMo=today.getMonth()+1,todayD=today.getDate();
   const daysInMonth=new Date(yr,mo,0).getDate();
   const days=Array.from({length:daysInMonth},(_,i)=>i+1);
-  const todayD=today.getDate();
   const cw=26;
   if(!ISSUES||!ISSUES.length){
     wrap.innerHTML='<div style="text-align:center;color:var(--text3);padding:3rem;font-size:13px">등록된 업무가 없습니다</div>';
@@ -157,7 +190,7 @@ function renderGantt(){
     <div style="flex:1;position:relative;height:38px;display:flex">
       ${days.map(d=>{const dow=new Date(yr,mo-1,d).getDay();const hol=HOLIDAYS[mo]&&HOLIDAYS[mo][d];return `<div class="gantt-day-cell${dow===0||dow===6||hol?' weekend':''}"></div>`;}).join('')}
       <div class="gantt-bar" style="left:${barL}px;width:${barW}px;background:${c}"></div>
-      <div class="gantt-today-line" style="left:${(todayD-1)*cw+cw/2}px"></div>
+      ${yr===todayYr&&mo===todayMo?`<div class="gantt-today-line" style="left:${(todayD-1)*cw+cw/2}px"></div>`:''}
     </div></div>`;
   });
   html+=`</div>`;

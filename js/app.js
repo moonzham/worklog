@@ -191,6 +191,9 @@ function fillDetailForm(iss){
   document.getElementById('d-deploy').value=iss?iss.prodDate:'';
   document.getElementById('d-progress').value=iss?iss.progressNote:'';
   clearTitleError();
+  /* 삭제 버튼: 신규면 숨김, 수정이면 표시 */
+  const delBtn=document.getElementById('detail-delete-btn');
+  if(delBtn)delBtn.style.display=iss?'inline-block':'none';
   const link=iss?iss.link:'';
   const disp=document.getElementById('d-link-display');
   if(link){disp.textContent=link;disp.href=link;}

@@ -207,3 +207,5 @@ td.td-hol .day-num{color:var(--red)!important}
 .gantt-day-cell.weekend{background:rgba(0,0,0,.03)}
 .gantt-bar{height:14px;border-radius:3px;position:absolute;top:12px;opacity:.85}
 .gantt-today-line{position:absolute;top:0;bottom:0;width:1.5px;background:var(--red);z-index:2;opacity:.5}
+.btn-sm.danger{color:var(--red);border-color:var(--red)}
+.btn-sm.danger:hover{background:var(--red);color:#fff}

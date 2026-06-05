@@ -234,6 +234,7 @@
           <textarea class="progress-textarea" id="d-progress" placeholder="진행 내용을 입력하세요..."></textarea>
         </div>
         <div class="detail-save-row">
+          <button class="btn-sm danger" id="detail-delete-btn" onclick="deleteIssueDetail()" style="display:none;margin-right:auto">삭제</button>
           <button class="btn-sm" onclick="goBack()">취소</button>
           <button class="btn-sm primary" onclick="saveIssueDetail()">저장</button>
         </div>
@@ -243,6 +244,12 @@
 
   <!-- GANTT -->
   <div class="view gantt-view" id="view-gantt">
+    <div style="display:flex;align-items:center;gap:8px;padding:14px 20px 0;flex-shrink:0">
+      <button class="cal-nav" onclick="changeGanttMonth(-1)">‹</button>
+      <span id="gantt-month-label" style="font-size:15px;font-weight:600;color:var(--text)"></span>
+      <button class="cal-nav" onclick="changeGanttMonth(1)">›</button>
+      <button class="cal-today-btn" onclick="resetGanttMonth()">이번 달</button>
+    </div>
     <div class="gantt-scroll">
       <div class="gantt-wrap" id="gantt-wrap"></div>
     </div>
