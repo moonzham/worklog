@@ -1,3 +1,15 @@
+/* ── COMMON CODE CRUD ── */
+async function commonCodeLoad(){
+  try{
+    const data=await sheetsGet('COMMON_CODE!A2:G');
+    const rows=(data.values||[]).filter(r=>r[4]!=='N');
+    CODES.PROJECT=rows
+      .filter(r=>r[0]==='PROJECT')
+      .sort((a,b)=>parseInt(a[3]||99)-parseInt(b[3]||99))
+      .map(r=>({code:r[1]||'',name:r[2]||''}));
+  }catch(e){console.error('commonCodeLoad',e);}
+}
+
 /* ── DAILY CRUD ── */
 async function dailyLoad(){
   try{
@@ -129,6 +141,7 @@ const DOW=['일','월','화','수','목','금','토'];
 
 let ISSUES=[];
 const JOURNALS={};
+let CODES={PROJECT:[]};  /* 공통코드 캐시 */
 
 let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none';
 let jdOriginal='',jdDirty=false,curSelDateKey='';
@@ -260,10 +273,11 @@ async function startApp(){
   ISSUES=[];
   Object.keys(JOURNALS).forEach(k=>delete JOURNALS[k]);
   try{
-    const [issues,dailies]=await Promise.all([issueLoad(),dailyLoad()]);
+    const [issues,dailies]=await Promise.all([issueLoad(),dailyLoad(),commonCodeLoad()]);
     ISSUES=issues;
     dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
   }catch(e){console.error('데이터 로드 실패',e);}
+  renderProjectSelect();
   const today=new Date();
   curYear=today.getFullYear();
   curMonth=today.getMonth()+1;
@@ -345,11 +359,28 @@ function openNewTask(){
   btn.textContent='← 목록으로';btn.onclick=goBack;
   prevTab='tasks';switchTab('detail');
 }
+function renderProjectSelect(selectedCode){
+  const sel=document.getElementById('d-project');
+  const current=selectedCode||sel.value||'';
+  sel.innerHTML='';
+  const projects=CODES.PROJECT.length
+    ?CODES.PROJECT
+    :[{code:'DARWIN',name:'DARWIN'},{code:'API',name:'API'},{code:'WEB',name:'WEB'},{code:'OPS',name:'OPS'},{code:'기타',name:'기타'}];
+  projects.forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.code;opt.textContent=p.name;
+    if(p.code===current)opt.selected=true;
+    sel.appendChild(opt);
+  });
+  /* 선택값 없으면 첫 번째 선택 */
+  if(!current&&sel.options.length)sel.selectedIndex=0;
+}
+
 function fillDetailForm(iss){
   document.getElementById('d-seq').value=iss?iss.seq:'';
   document.getElementById('d-id').value=iss?iss.id:'';
   document.getElementById('d-title').value=iss?iss.title:'';
-  document.getElementById('d-project').value=iss?iss.project:'DARWIN';
+  renderProjectSelect(iss?iss.project:'');
   document.getElementById('d-priority').value=iss?iss.priority:'mid';
   document.getElementById('d-status').value=iss?iss.status:'진행예정';
   document.getElementById('d-created').value=iss?iss.issueRegDate:'';
@@ -358,6 +389,8 @@ function fillDetailForm(iss){
   document.getElementById('d-devend').value=iss?iss.devEnd:'';
   document.getElementById('d-deploy').value=iss?iss.prodDate:'';
   document.getElementById('d-progress').value=iss?iss.progressNote:'';
+  /* 제목 에러 상태 초기화 */
+  clearTitleError();
   const link=iss?iss.link:'';
   const disp=document.getElementById('d-link-display');
   if(link){disp.textContent=link;disp.href=link;}
@@ -667,7 +700,9 @@ async function saveJournalDetail(){
 /* ── TASK LIST ── */
 function renderTaskList(filter='all'){
   const tbody=document.getElementById('task-tbody');tbody.innerHTML='';
-  const list=filter==='all'?ISSUES:ISSUES.filter(i=>i.status===filter);
+  let list=filter==='all'?[...ISSUES]:ISSUES.filter(i=>i.status===filter);
+  /* ISSUE_SEQ DESC 정렬 */
+  list.sort((a,b)=>b.seq.localeCompare(a.seq));
   if(!list.length){
     tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:2rem">등록된 업무가 없습니다</td></tr>`;
     return;
@@ -697,21 +732,57 @@ function filterTask(btn,f){
   btn.classList.add('active');renderTaskList(f);
 }
 
+function showTitleError(msg){
+  const input=document.getElementById('d-title');
+  input.style.borderBottom='2px solid var(--red)';
+  let err=document.getElementById('d-title-err');
+  if(!err){
+    err=document.createElement('div');err.id='d-title-err';
+    err.style.cssText='font-size:11px;color:var(--red);margin-top:4px';
+    input.parentNode.insertBefore(err,input.nextSibling);
+  }
+  err.textContent=msg;
+  input.oninput=()=>clearTitleError();
+}
+function clearTitleError(){
+  const input=document.getElementById('d-title');
+  if(input){input.style.borderBottom='';}
+  const err=document.getElementById('d-title-err');
+  if(err)err.remove();
+}
+
 async function saveIssueDetail(){
   const btn=document.querySelector('#view-detail .btn-sm.primary');
   btn.textContent='저장 중...';btn.disabled=true;
   const seq=document.getElementById('d-seq').value.trim();
   const id=document.getElementById('d-id').value.trim();
   const title=document.getElementById('d-title').value.trim();
-  if(!title){alert('이슈 제목은 필수입니다.');btn.textContent='저장';btn.disabled=false;return;}
+  const project=document.getElementById('d-project').value;
+
+  /* 제목 필수 체크 */
+  if(!title){
+    showTitleError('이슈 제목은 필수입니다.');
+    btn.textContent='저장';btn.disabled=false;return;
+  }
+
+  /* 같은 프로젝트 내 ISSUE_ID 중복 체크 (null/empty 제외, 자기 자신 제외) */
+  if(id){
+    const dup=ISSUES.find(i=>
+      i.id===id &&
+      i.project===project &&
+      i.seq!==seq
+    );
+    if(dup){
+      alert(`[${project}] 프로젝트에 이미 존재하는 이슈코드입니다: ${id}`);
+      btn.textContent='저장';btn.disabled=false;return;
+    }
+  }
+
   const linkInput=document.getElementById('d-link-input').value.trim();
   const linkDisplay=document.getElementById('d-link-display').href;
   const link=linkInput||(linkDisplay==='#'||linkDisplay===window.location.href?'':linkDisplay);
   const iss={
-    seq,
-    id,
-    project:document.getElementById('d-project').value,
-    title,
+    seq,id,project,title,
     priority:document.getElementById('d-priority').value,
     status:document.getElementById('d-status').value,
     link:link||'',
@@ -722,7 +793,7 @@ async function saveIssueDetail(){
     prodDate:document.getElementById('d-deploy').value||'',
     progressNote:document.getElementById('d-progress').value||'',
   };
-  const isNew=!seq; /* seq 없으면 신규 */
+  const isNew=!seq;
   try{
     await issueSave(iss,isNew);
     ISSUES=await issueLoad();
