@@ -158,8 +158,8 @@ td.td-hol .day-num{color:var(--red)!important}
 /* JOURNAL LIST */
 .jlist-view{overflow-y:auto}
 .jlist-inner{max-width:920px;margin:0 auto;padding:20px;width:100%}
-.jlist-load-btn{width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text3);border:none;background:none}
-.jlist-load-btn:hover{color:var(--text)}
+.jlist-load-btn{width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text3);border:1px dashed var(--border);background:none;border-radius:var(--radius);margin-bottom:10px;cursor:pointer}
+.jlist-load-btn:hover{color:var(--text);border-color:var(--border2);background:var(--surface)}
 .jlist-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;cursor:pointer}
 .jlist-item:hover{border-color:var(--border2)}
 .jlist-date{font-size:12px;font-weight:600;color:var(--text);margin-bottom:5px}
@@ -356,9 +356,9 @@ td.td-hol .day-num{color:var(--red)!important}
   <!-- JOURNAL LIST -->
   <div class="view jlist-view" id="view-journal">
     <div class="jlist-inner">
-      <button class="jlist-load-btn" onclick="loadMore('up')">↑ 이후 날짜 더 보기</button>
+      <button class="jlist-load-btn" id="jlist-load-up" onclick="loadMore('up')" style="display:none">↑ 이전 날짜 더 보기</button>
       <div id="journal-entries"></div>
-      <button class="jlist-load-btn" onclick="loadMore('down')">↓ 이전 날짜 더 보기</button>
+      <button class="jlist-load-btn" id="jlist-load-down" onclick="loadMore('down')" style="display:none">↓ 더 보기</button>
     </div>
   </div>
 
@@ -615,6 +615,10 @@ const JOURNALS={};
 
 let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none';
 let jdOriginal='',jdDirty=false,curSelDateKey='';
+/* 업무일지 더보기 상태 */
+let jlistAllDates=[]; /* 전체 날짜 목록 (ASC) */
+let jlistShownCount=0; /* 현재 화면에 보이는 개수 */
+const JLIST_PAGE=7; /* 한 번에 보여줄 개수 */
 
 /* 이슈칩 색상: 중요도 기준 */
 function chipColor(iss){return P_COLOR[iss.priority]||P_COLOR.mid;}
@@ -829,12 +833,12 @@ function fillDetailForm(iss){
   document.getElementById('d-project').value=iss?iss.project:'DARWIN';
   document.getElementById('d-priority').value=iss?iss.priority:'mid';
   document.getElementById('d-status').value=iss?iss.status:'진행예정';
-  document.getElementById('d-created').value=iss?iss.issueRegDate:'';
-  document.getElementById('d-due').value=iss?iss.targetDate:'';
-  document.getElementById('d-devstart').value=iss?iss.devStart:'';
-  document.getElementById('d-devend').value=iss?iss.devEnd:'';
-  document.getElementById('d-deploy').value=iss?iss.prodDate:'';
-  document.getElementById('d-progress').value=iss?iss.progressNote:'';
+  document.getElementById('d-created').value=iss?iss.created:'';
+  document.getElementById('d-due').value=iss?iss.due:'';
+  document.getElementById('d-devstart').value=iss?iss.devstart:'';
+  document.getElementById('d-devend').value=iss?iss.devend:'';
+  document.getElementById('d-deploy').value=iss?iss.deploy:'';
+  document.getElementById('d-progress').value=iss?iss.progress:'';
   const link=iss?iss.link:'';
   const disp=document.getElementById('d-link-display');
   if(link){disp.textContent=link;disp.href=link;}
@@ -868,7 +872,7 @@ function renderCalendar(){
       const blank=(wk===0&&dow<firstDay);
       if(!blank&&d<=daysInMonth){
         const dd=d;
-        const todayObj=new Date();const isToday=(curYear===todayObj.getFullYear()&&curMonth===todayObj.getMonth()+1&&dd===todayObj.getDate());
+        const isToday=(curYear===2026&&curMonth===6&&dd===3);
         const hol=HOLIDAYS[curMonth]&&HOLIDAYS[curMonth][dd];
         if(dow===0)td.classList.add('td-sun');
         if(dow===6)td.classList.add('td-sat');
@@ -921,7 +925,7 @@ function selectDate(d){
   document.getElementById('journal-box').style.display='block';
   document.getElementById('agenda-box').style.display='block';
   const dow=new Date(curYear,curMonth-1,d).getDay();
-  const todayObj2=new Date();const isToday=curYear===todayObj2.getFullYear()&&curMonth===todayObj2.getMonth()+1&&d===todayObj2.getDate();
+  const isToday=curYear===2026&&curMonth===6&&d===3;
   document.getElementById('journal-box-label').textContent=`${curYear}년 ${curMonth}월 ${d}일 업무일지`;
   const text=JOURNALS[curSelDateKey]||'';
   const viewEl=document.getElementById('journal-view');
@@ -1004,23 +1008,25 @@ function changeMonth(dir){
   ['month-report-box','week-report-box','agenda-box','journal-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
-function goToday(){const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;renderCalendar();selectDate(t.getDate());}
+function goToday(){curYear=2026;curMonth=6;document.getElementById('month-label').textContent='2026년 6월';renderCalendar();selectDate(3);}
 
 /* ── JOURNAL LIST ── */
-function renderJournalList(){
-  const el=document.getElementById('journal-entries');el.innerHTML='';
-  /* JOURNALS에 저장된 날짜 + 오늘 포함해서 최근 30일치 동적 생성 */
+function buildJlistDates(){
+  /* JOURNALS에 저장된 날짜 + 오늘까지 최근 365일을 ASC 정렬로 전체 목록 구성 */
   const today=new Date();
   const dateSet=new Set(Object.keys(JOURNALS));
-  for(let i=0;i<30;i++){
+  for(let i=0;i<365;i++){
     const d2=new Date(today);d2.setDate(today.getDate()-i);
     dateSet.add(d2.toISOString().slice(0,10));
   }
-  const dates=[...dateSet].sort((a,b)=>b.localeCompare(a)).slice(0,30);
+  /* ASC 정렬 (오래된 날짜 → 최근 날짜) */
+  jlistAllDates=[...dateSet].sort((a,b)=>a.localeCompare(b));
+}
+
+function renderJournalItems(dates){
+  const el=document.getElementById('journal-entries');
   dates.forEach(dt=>{
     const d=new Date(dt);
-    const parts=dt.split('-');
-    const yr=parseInt(parts[0]),mo=parseInt(parts[1]),day=parseInt(parts[2]);
     const dateStr=dt;
     const issues=ISSUES.filter(i=>{
       if(!i.devStart||i.useYn==='N')return false;
@@ -1044,11 +1050,79 @@ function renderJournalList(){
       }).join('')}</div>`;
     }
     item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
-    <div class="jlist-text${text?'':' empty'}">${text||'작성된 일지가 없습니다.'}</div>${issHtml}`;
+    <div class="jlist-text${text?'':' empty'}">${text?text.slice(0,120)+(text.length>120?'…':''):'작성된 일지가 없습니다.'}</div>${issHtml}`;
     el.appendChild(item);
   });
 }
-function loadMore(dir){alert(dir==='up'?'이후 날짜를 로딩합니다...':'이전 날짜를 로딩합니다...');}
+
+function updateJlistButtons(){
+  const upBtn=document.getElementById('jlist-load-up');
+  const downBtn=document.getElementById('jlist-load-down');
+  const total=jlistAllDates.length;
+  const shownEnd=total; /* 항상 끝(최신)은 고정 */
+  const shownStart=total-jlistShownCount;
+  /* 위쪽(더 오래된 것)이 더 있으면 상단 버튼 표시 */
+  upBtn.style.display=shownStart>0?'block':'none';
+  upBtn.textContent=`↑ 이전 날짜 더 보기 (${shownStart}일 남음)`;
+  /* ASC 정렬이므로 아래가 최신 — 이미 최신까지 다 보여주므로 하단 버튼 불필요 */
+  downBtn.style.display='none';
+}
+
+function renderJournalList(){
+  buildJlistDates();
+  const el=document.getElementById('journal-entries');el.innerHTML='';
+  /* 최초: 가장 최신 7일치 (ASC이므로 뒤에서 7개) */
+  const total=jlistAllDates.length;
+  jlistShownCount=Math.min(JLIST_PAGE,total);
+  const slice=jlistAllDates.slice(total-jlistShownCount);
+  renderJournalItems(slice);
+  updateJlistButtons();
+}
+
+function loadMore(dir){
+  if(dir==='up'){
+    const total=jlistAllDates.length;
+    const prevStart=total-jlistShownCount;
+    const nextStart=Math.max(0,prevStart-JLIST_PAGE);
+    const newDates=jlistAllDates.slice(nextStart,prevStart);
+    if(!newDates.length)return;
+    /* 위쪽에 prepend */
+    const el=document.getElementById('journal-entries');
+    const frag=document.createDocumentFragment();
+    const tempDiv=document.createElement('div');
+    newDates.forEach(dt=>{
+      const d=new Date(dt);
+      const dateStr=dt;
+      const issues=ISSUES.filter(i=>{
+        if(!i.devStart||i.useYn==='N')return false;
+        const endDate=i.prodDate||i.targetDate;
+        if(!endDate)return false;
+        return i.devStart<=dateStr&&endDate>=dateStr;
+      });
+      const text=JOURNALS[dt];
+      const item=document.createElement('div');item.className='jlist-item';
+      item.onclick=()=>openJournalDetail(dt);
+      let issHtml='';
+      if(issues.length){
+        issHtml=`<div style="margin-top:2px">${issues.map(i=>{
+          const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
+          return `<div class="issue-row">
+            <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
+            <div class="issue-row-title">${i.title}</div>
+            <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
+            <div class="issue-row-arrow">›</div>
+          </div>`;
+        }).join('')}</div>`;
+      }
+      item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
+      <div class="jlist-text${text?'':' empty'}">${text?text.slice(0,120)+(text.length>120?'…':''):'작성된 일지가 없습니다.'}</div>${issHtml}`;
+      frag.appendChild(item);
+    });
+    el.insertBefore(frag,el.firstChild);
+    jlistShownCount+=newDates.length;
+    updateJlistButtons();
+  }
+}
 
 /* ── JOURNAL DETAIL ── */
 function openJournalDetail(dt,isNew){
@@ -1059,7 +1133,7 @@ function openJournalDetail(dt,isNew){
   jdOriginal=text;jdDirty=false;
   document.getElementById('jd-save-btn').className='btn-sm primary';
   document.getElementById('unsaved-hint').style.display='none';
-  /* 이슈 목록 */
+  /* 이슈 목록: devStart ~ prodDate/targetDate 범위 기반 */
   const issues=ISSUES.filter(i=>{
     if(!i.devStart||i.useYn==='N')return false;
     const endDate=i.prodDate||i.targetDate;
@@ -1251,15 +1325,15 @@ function doSearch(){
 /* ── GANTT ── */
 function renderGantt(){
   const wrap=document.getElementById('gantt-wrap');
-  if(!wrap)return;
   const today=new Date();
   const yr=today.getFullYear(),mo=today.getMonth()+1;
   const daysInMonth=new Date(yr,mo,0).getDate();
   const days=Array.from({length:daysInMonth},(_,i)=>i+1);
   const todayD=today.getDate();
   const cw=26;
+  const pad=n=>String(n).padStart(2,'0');
 
-  if(!ISSUES||!ISSUES.length){
+  if(!ISSUES.length){
     wrap.innerHTML='<div style="text-align:center;color:var(--text3);padding:3rem;font-size:13px">등록된 업무가 없습니다</div>';
     return;
   }
@@ -1274,12 +1348,11 @@ function renderGantt(){
   html+=`</div></div>`;
 
   ISSUES.forEach(iss=>{
-    if(!iss||!iss.devStart)return;
+    if(!iss.devStart)return;
     const endDate=iss.prodDate||iss.targetDate;
     if(!endDate)return;
-    let startD,endD;
-    try{startD=new Date(iss.devStart);endD=new Date(endDate);}catch(e){return;}
-    if(isNaN(startD.getTime())||isNaN(endD.getTime()))return;
+    const startD=new Date(iss.devStart);
+    const endD=new Date(endDate);
     const monthStart=new Date(yr,mo-1,1);
     const monthEnd=new Date(yr,mo-1,daysInMonth);
     if(endD<monthStart||startD>monthEnd)return;
