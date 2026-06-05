@@ -47,9 +47,10 @@ function renderCalendar(){
       }
       tr.appendChild(td);
     }
+    const weekIdx=wk;
     const wkTd=document.createElement('td');wkTd.className='week-btn-cell';
-    wkTd.innerHTML=`<div class="wk-btn-inner"><div class="wk-num">W${wk+1}</div><div class="wk-sub">주간보고</div></div>`;
-    wkTd.onclick=()=>showWeekReport(wk);
+    wkTd.innerHTML=`<div class="wk-btn-inner"><div class="wk-num">W${weekIdx+1}</div><div class="wk-sub">주간보고</div></div>`;
+    wkTd.onclick=()=>showWeekReport(weekIdx);
     tr.appendChild(wkTd);
     tbody.appendChild(tr);wk++;
   }
@@ -95,43 +96,195 @@ function goToJournalDetail(){
   openJournalDetail(curSelDateKey,!JOURNALS[curSelDateKey]);
 }
 function hideBottom(){
-  bottomMode='none';selDate=null;
+  bottomMode='none';selDate=null;curWeekIdx=null;
   ['journal-box','agenda-box','month-report-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
+function reportDateStr(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function monthReportKey(year=curYear,month=curMonth){
+  return `${year}-${String(month).padStart(2,'0')}`;
+}
+function weekReportKey(year=curYear,month=curMonth,weekIdx=curWeekIdx){
+  return `${monthReportKey(year,month)}-W${String((weekIdx||0)+1).padStart(2,'0')}`;
+}
+function getMonthReportPeriod(year=curYear,month=curMonth){
+  const start=new Date(year,month-1,1);
+  const end=new Date(year,month,0);
+  return {
+    key:monthReportKey(year,month),
+    label:`${year}년 ${month}월`,
+    startDate:reportDateStr(start),
+    endDate:reportDateStr(end)
+  };
+}
+function getWeekReportPeriod(weekIdx=curWeekIdx,year=curYear,month=curMonth){
+  const daysInMonth=new Date(year,month,0).getDate();
+  const firstDay=new Date(year,month-1,1).getDay();
+  const rowStartDay=weekIdx*7-firstDay+1;
+  const startDay=Math.max(1,rowStartDay);
+  const endDay=Math.min(daysInMonth,rowStartDay+6);
+  const safeStartDay=startDay>daysInMonth?daysInMonth:startDay;
+  const safeEndDay=endDay<1?1:endDay;
+  return {
+    key:weekReportKey(year,month,weekIdx),
+    label:`${year}년 ${month}월 ${weekIdx+1}주차`,
+    weekIndex:weekIdx,
+    startDate:reportDateStr(new Date(year,month-1,safeStartDay)),
+    endDate:reportDateStr(new Date(year,month-1,safeEndDay))
+  };
+}
+function getReportPeriod(type){
+  return type==='month'?getMonthReportPeriod():getWeekReportPeriod(curWeekIdx===null?0:curWeekIdx);
+}
+function dateInRange(date,startDate,endDate){
+  return date>=startDate&&date<=endDate;
+}
+function getIssueReportStartDate(iss){
+  return iss.devStart||'';
+}
+function getIssueReportEndDate(iss){
+  return iss.prodDate||iss.targetDate||'9999-12-31';
+}
+function issueOverlapsPeriod(iss,startDate,endDate){
+  const start=getIssueReportStartDate(iss);
+  if(!start)return false;
+  const end=getIssueReportEndDate(iss);
+  return start<=endDate&&end>=startDate;
+}
+function countBy(list,fn){
+  return list.reduce((acc,item)=>{
+    const key=fn(item)||'미지정';
+    acc[key]=(acc[key]||0)+1;
+    return acc;
+  },{});
+}
+function buildReportAiPayload(type){
+  const period=getReportPeriod(type);
+  const journals=Object.entries(JOURNALS)
+    .filter(([date,content])=>content&&dateInRange(date,period.startDate,period.endDate))
+    .sort(([a],[b])=>a.localeCompare(b))
+    .map(([date,content])=>({date,content}));
+  const issues=ISSUES
+    .filter(iss=>iss.useYn!=='N'&&issueOverlapsPeriod(iss,period.startDate,period.endDate))
+    .sort((a,b)=>getIssueReportStartDate(a).localeCompare(getIssueReportStartDate(b)))
+    .map(iss=>({
+      issueNo:iss.id||iss.seq,
+      issueTitle:iss.title,
+      projectName:getProjectName(iss.project),
+      status:iss.status,
+      productionDate:iss.prodDate,
+      reportStartDate:getIssueReportStartDate(iss),
+      reportEndDate:getIssueReportEndDate(iss),
+      progressNote:iss.progressNote
+    }));
+  return {
+    reportType:type,
+    generatedAt:nowStr(),
+    period,
+    journals,
+    issues,
+    summary:{
+      journalCount:journals.length,
+      issueCount:issues.length,
+      statusCounts:countBy(issues,iss=>iss.status),
+      projectCounts:countBy(issues,iss=>iss.projectName)
+    }
+  };
+}
+function buildReportPrompt(payload){
+  const reportName=payload.reportType==='month'?'월간보고':'주간보고';
+  const periodText=`${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})`;
+  const focusText=payload.reportType==='month'
+    ?'이번달에 어느 이슈에 대해 어떤 작업을 했는지'
+    :'이번주에 어느 이슈에 대해 어떤 작업을 했는지';
+  return [
+    `너는 업무일지와 이슈 데이터를 바탕으로 ${reportName}를 작성하는 비서다.`,
+    '',
+    `보고서 기간: ${periodText}`,
+    '',
+    '작성 기준:',
+    `- ${focusText}가 드러나도록 작성한다.`,
+    '- 주요 성과와 진행중 업무를 중심으로 작성한다.',
+    '- 업무일지 journals[].content 원문을 가장 우선 근거로 사용한다.',
+    '- issues[]는 이슈번호, 제목, 상태, 프로젝트, 운영반영일, 진행사항을 확인하기 위한 보조 자료로 사용한다.',
+    '- 특정 이슈와 관련된 내용을 작성할 때는 issueNo와 issueTitle을 반드시 함께 노출한다.',
+    '- 데이터에 없는 내용은 추측하지 말고, 확인되지 않은 완료/배포/일정은 단정하지 않는다.',
+    '- 보고서 본문에는 payload, JSON, 데이터 미리보기 같은 내부 표현을 언급하지 않는다.',
+    '- 한국어로 자연스럽고 간결하게 작성한다.',
+    '',
+    '출력 형식:',
+    '- 제목은 쓰지 말고 본문만 작성한다.',
+    '- 주요 성과, 진행중 업무를 중심으로 구성한다.',
+    '- 필요하면 리스크/지연 또는 다음 계획을 짧게 덧붙인다.',
+    '- 관련 데이터가 거의 없으면 데이터가 부족하다고 간단히 적는다.',
+    '',
+    '보고서 작성용 데이터:',
+    JSON.stringify(payload,null,2)
+  ].join('\n');
+}
+function renderReportAiPayloadPreview(type){
+  const payload=buildReportAiPayload(type);
+  const prompt=buildReportPrompt(payload);
+  return `AI 전송 전 데이터/프롬프트 미리보기\n${payload.period.label} (${payload.period.startDate} ~ ${payload.period.endDate})\n\n[PAYLOAD]\n${JSON.stringify(payload,null,2)}\n\n[PROMPT]\n${prompt}`;
+}
+async function loadReport(type){
+  const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
+  const period=getReportPeriod(type);
+  ta.value='보고서를 불러오는 중입니다...';
+  try{
+    ta.value=type==='month'
+      ?await monthlyLoad(period.key)
+      :await weeklyLoad(period.key);
+  }catch(e){
+    ta.value='';
+    alert('보고서를 불러오는 중 오류가 발생했습니다: '+e.message);
+  }
+}
+async function saveReport(type){
+  const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
+  const period=getReportPeriod(type);
+  try{
+    if(type==='month')await monthlySave(period.key,ta.value);
+    else await weeklySave(period.key,ta.value);
+    alert(`${period.label} 보고서를 저장했습니다.`);
+  }catch(e){
+    alert('보고서 저장 중 오류가 발생했습니다: '+e.message);
+  }
+}
 function toggleMonthReport(){
   if(bottomMode==='month'){bottomMode='none';document.getElementById('month-report-box').style.display='none';return;}
-  bottomMode='month';
+  bottomMode='month';curWeekIdx=null;
   ['agenda-box','journal-box','week-report-box'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('month-report-box').style.display='block';
-  document.getElementById('month-report-title').textContent=`${curYear}년 ${curMonth}월 월간보고`;
+  const period=getMonthReportPeriod();
+  document.getElementById('month-report-title').textContent=`${period.label} 월간보고`;
+  loadReport('month');
 }
 function showWeekReport(idx){
-  bottomMode='week';
+  bottomMode='week';curWeekIdx=idx;
   ['agenda-box','journal-box','month-report-box'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('week-report-box').style.display='block';
-  document.getElementById('week-report-title').textContent=`${curMonth}월 ${idx+1}주차 주간보고`;
+  const period=getWeekReportPeriod(idx);
+  document.getElementById('week-report-title').textContent=`${period.label} 주간보고`;
+  loadReport('week');
 }
 function genReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
-  ta.value='AI가 보고서를 생성하고 있습니다...';
-  setTimeout(()=>{
-    ta.value=type==='month'
-      ?'월간보고\n\n이번 달 업무 이슈 현황 및 진행 요약입니다.'
-      :'주간보고\n\n이번 주 주요 업무 진행 현황 요약입니다.';
-  },1200);
+  ta.value=renderReportAiPayloadPreview(type);
 }
 function changeMonth(dir){
   curMonth+=dir;
   if(curMonth>12){curMonth=1;curYear++;}
   if(curMonth<1){curMonth=12;curYear--;}
   document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;
-  selDate=null;bottomMode='none';
+  selDate=null;bottomMode='none';curWeekIdx=null;
   ['month-report-box','week-report-box','agenda-box','journal-box'].forEach(id=>document.getElementById(id).style.display='none');
   renderCalendar();
 }
 function goToday(){
-  const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;
+  const t=new Date();curYear=t.getFullYear();curMonth=t.getMonth()+1;curWeekIdx=null;
   document.getElementById('month-label').textContent=`${curYear}년 ${curMonth}월`;
   renderCalendar();selectDate(t.getDate());
 }
