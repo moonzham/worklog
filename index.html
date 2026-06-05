@@ -356,9 +356,9 @@ td.td-hol .day-num{color:var(--red)!important}
   <!-- JOURNAL LIST -->
   <div class="view jlist-view" id="view-journal">
     <div class="jlist-inner">
-      <button class="jlist-load-btn" id="jlist-load-up" onclick="loadMore('up')" style="display:none">↑ 이전 날짜 더 보기</button>
+      <button class="jlist-load-btn" id="jlist-btn-up" onclick="loadMore('up')" style="display:none">↑ 이전 날짜 더 보기</button>
       <div id="journal-entries"></div>
-      <button class="jlist-load-btn" id="jlist-load-down" onclick="loadMore('down')" style="display:none">↓ 더 보기</button>
+      <button class="jlist-load-btn" id="jlist-btn-down" onclick="loadMore('down')" style="display:none">↓ 이후 날짜 더 보기</button>
     </div>
   </div>
 
@@ -615,10 +615,11 @@ const JOURNALS={};
 
 let curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1,selDate=null,prevTab='calendar',bottomMode='none';
 let jdOriginal='',jdDirty=false,curSelDateKey='';
-/* 업무일지 더보기 상태 */
-let jlistAllDates=[]; /* 전체 날짜 목록 (ASC) */
-let jlistShownCount=0; /* 현재 화면에 보이는 개수 */
-const JLIST_PAGE=7; /* 한 번에 보여줄 개수 */
+/* 업무일지 페이지네이션 상태 */
+let jlistAllDates=[]; /* 전체 날짜 풀 (ASC: 오래된순 → 최신순) */
+let jlistFrom=0;      /* 현재 화면에 보이는 구간 시작 인덱스 */
+let jlistTo=0;        /* 현재 화면에 보이는 구간 끝 인덱스 (exclusive) */
+const JLIST_PAGE=7;
 
 /* 이슈칩 색상: 중요도 기준 */
 function chipColor(iss){return P_COLOR[iss.priority]||P_COLOR.mid;}
@@ -1012,116 +1013,86 @@ function goToday(){curYear=2026;curMonth=6;document.getElementById('month-label'
 
 /* ── JOURNAL LIST ── */
 function buildJlistDates(){
-  /* JOURNALS에 저장된 날짜 + 오늘까지 최근 365일을 ASC 정렬로 전체 목록 구성 */
-  const today=new Date();
+  /* JOURNALS에 저장된 날짜만 사용 → ASC 정렬 */
   const dateSet=new Set(Object.keys(JOURNALS));
-  for(let i=0;i<365;i++){
-    const d2=new Date(today);d2.setDate(today.getDate()-i);
-    dateSet.add(d2.toISOString().slice(0,10));
-  }
-  /* ASC 정렬 (오래된 날짜 → 최근 날짜) */
+  /* 오늘도 항상 포함 */
+  dateSet.add(todayStr());
   jlistAllDates=[...dateSet].sort((a,b)=>a.localeCompare(b));
 }
 
-function renderJournalItems(dates){
-  const el=document.getElementById('journal-entries');
-  dates.forEach(dt=>{
-    const d=new Date(dt);
-    const dateStr=dt;
-    const issues=ISSUES.filter(i=>{
-      if(!i.devStart||i.useYn==='N')return false;
-      const endDate=i.prodDate||i.targetDate;
-      if(!endDate)return false;
-      return i.devStart<=dateStr&&endDate>=dateStr;
-    });
-    const text=JOURNALS[dt];
-    const item=document.createElement('div');item.className='jlist-item';
-    item.onclick=()=>openJournalDetail(dt);
-    let issHtml='';
-    if(issues.length){
-      issHtml=`<div style="margin-top:2px">${issues.map(i=>{
-        const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
-        return `<div class="issue-row">
-          <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
-          <div class="issue-row-title">${i.title}</div>
-          <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
-          <div class="issue-row-arrow">›</div>
-        </div>`;
-      }).join('')}</div>`;
-    }
-    item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
-    <div class="jlist-text${text?'':' empty'}">${text?text.slice(0,120)+(text.length>120?'…':''):'작성된 일지가 없습니다.'}</div>${issHtml}`;
-    el.appendChild(item);
+function makeJlistItem(dt){
+  const d=new Date(dt+'T00:00:00');
+  const text=JOURNALS[dt];
+  const issues=ISSUES.filter(i=>{
+    if(!i.devStart||i.useYn==='N')return false;
+    const endDate=i.prodDate||i.targetDate;
+    if(!endDate)return false;
+    return i.devStart<=dt&&endDate>=dt;
   });
+  const item=document.createElement('div');item.className='jlist-item';
+  item.onclick=()=>openJournalDetail(dt);
+  let issHtml='';
+  if(issues.length){
+    issHtml=`<div style="margin-top:2px">${issues.map(i=>{
+      const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
+      return `<div class="issue-row">
+        <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
+        <div class="issue-row-title">${i.title}</div>
+        <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
+        <div class="issue-row-arrow">›</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+  const preview=text?text.slice(0,120)+(text.length>120?'…':''):'작성된 일지가 없습니다.';
+  item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
+  <div class="jlist-text${text?'':' empty'}">${preview}</div>${issHtml}`;
+  return item;
 }
 
 function updateJlistButtons(){
-  const upBtn=document.getElementById('jlist-load-up');
-  const downBtn=document.getElementById('jlist-load-down');
+  const upBtn=document.getElementById('jlist-btn-up');
+  const downBtn=document.getElementById('jlist-btn-down');
   const total=jlistAllDates.length;
-  const shownEnd=total; /* 항상 끝(최신)은 고정 */
-  const shownStart=total-jlistShownCount;
-  /* 위쪽(더 오래된 것)이 더 있으면 상단 버튼 표시 */
-  upBtn.style.display=shownStart>0?'block':'none';
-  upBtn.textContent=`↑ 이전 날짜 더 보기 (${shownStart}일 남음)`;
-  /* ASC 정렬이므로 아래가 최신 — 이미 최신까지 다 보여주므로 하단 버튼 불필요 */
-  downBtn.style.display='none';
+  /* 위(과거) 더 있으면 상단 버튼 */
+  upBtn.style.display=jlistFrom>0?'block':'none';
+  /* 아래(미래/최신) 더 있으면 하단 버튼 */
+  downBtn.style.display=jlistTo<total?'block':'none';
 }
 
 function renderJournalList(){
   buildJlistDates();
   const el=document.getElementById('journal-entries');el.innerHTML='';
-  /* 최초: 가장 최신 7일치 (ASC이므로 뒤에서 7개) */
   const total=jlistAllDates.length;
-  jlistShownCount=Math.min(JLIST_PAGE,total);
-  const slice=jlistAllDates.slice(total-jlistShownCount);
-  renderJournalItems(slice);
+  /* 초기: 맨 끝(최신) 7개 */
+  jlistTo=total;
+  jlistFrom=Math.max(0,total-JLIST_PAGE);
+  const slice=jlistAllDates.slice(jlistFrom,jlistTo);
+  slice.forEach(dt=>el.appendChild(makeJlistItem(dt)));
   updateJlistButtons();
 }
 
 function loadMore(dir){
+  const el=document.getElementById('journal-entries');
   if(dir==='up'){
-    const total=jlistAllDates.length;
-    const prevStart=total-jlistShownCount;
-    const nextStart=Math.max(0,prevStart-JLIST_PAGE);
-    const newDates=jlistAllDates.slice(nextStart,prevStart);
-    if(!newDates.length)return;
-    /* 위쪽에 prepend */
-    const el=document.getElementById('journal-entries');
+    /* 과거 방향: jlistFrom 위로 7개 더 */
+    const newFrom=Math.max(0,jlistFrom-JLIST_PAGE);
+    if(newFrom>=jlistFrom)return;
+    const newDates=jlistAllDates.slice(newFrom,jlistFrom);
+    /* prepend */
     const frag=document.createDocumentFragment();
-    const tempDiv=document.createElement('div');
-    newDates.forEach(dt=>{
-      const d=new Date(dt);
-      const dateStr=dt;
-      const issues=ISSUES.filter(i=>{
-        if(!i.devStart||i.useYn==='N')return false;
-        const endDate=i.prodDate||i.targetDate;
-        if(!endDate)return false;
-        return i.devStart<=dateStr&&endDate>=dateStr;
-      });
-      const text=JOURNALS[dt];
-      const item=document.createElement('div');item.className='jlist-item';
-      item.onclick=()=>openJournalDetail(dt);
-      let issHtml='';
-      if(issues.length){
-        issHtml=`<div style="margin-top:2px">${issues.map(i=>{
-          const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
-          return `<div class="issue-row">
-            <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id}</div>
-            <div class="issue-row-title">${i.title}</div>
-            <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
-            <div class="issue-row-arrow">›</div>
-          </div>`;
-        }).join('')}</div>`;
-      }
-      item.innerHTML=`<div class="jlist-date">${dt} (${DOW[d.getDay()]})</div>
-      <div class="jlist-text${text?'':' empty'}">${text?text.slice(0,120)+(text.length>120?'…':''):'작성된 일지가 없습니다.'}</div>${issHtml}`;
-      frag.appendChild(item);
-    });
+    newDates.forEach(dt=>frag.appendChild(makeJlistItem(dt)));
     el.insertBefore(frag,el.firstChild);
-    jlistShownCount+=newDates.length;
-    updateJlistButtons();
+    jlistFrom=newFrom;
+  } else {
+    /* 미래 방향: jlistTo 아래로 7개 더 */
+    const total=jlistAllDates.length;
+    const newTo=Math.min(total,jlistTo+JLIST_PAGE);
+    if(newTo<=jlistTo)return;
+    const newDates=jlistAllDates.slice(jlistTo,newTo);
+    newDates.forEach(dt=>el.appendChild(makeJlistItem(dt)));
+    jlistTo=newTo;
   }
+  updateJlistButtons();
 }
 
 /* ── JOURNAL DETAIL ── */
@@ -1133,7 +1104,7 @@ function openJournalDetail(dt,isNew){
   jdOriginal=text;jdDirty=false;
   document.getElementById('jd-save-btn').className='btn-sm primary';
   document.getElementById('unsaved-hint').style.display='none';
-  /* 이슈 목록: devStart ~ prodDate/targetDate 범위 기반 */
+  /* 이슈 목록 */
   const issues=ISSUES.filter(i=>{
     if(!i.devStart||i.useYn==='N')return false;
     const endDate=i.prodDate||i.targetDate;
