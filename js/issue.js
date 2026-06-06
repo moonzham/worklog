@@ -229,7 +229,7 @@ function renderGantt(){
   let rows='';
   activeIssues.forEach(iss=>{
     const startDt=iss.devStart;
-    const endDt=iss.prodDate||iss.targetDate||todayStr2;
+    const endDt=iss.prodDate||iss.targetDate||'9999-12-31';
     const si=dateIdx[startDt]??0;
     const ei=dateIdx[endDt]??dates.length-1;
     const barL=si*cw;
@@ -245,7 +245,7 @@ function renderGantt(){
 
     rows+=`<div class="gantt-row" onclick="openDetail('${iss.seq}',true)">
       <div class="gantt-task-info">
-        <div class="gantt-task-id">${iss.id||iss.seq}</div>
+        <div class="gantt-task-id">${iss.id||''}</div>
         <div class="gantt-task-name">${iss.title}</div>
       </div>
       <div style="flex:1;position:relative;height:38px;display:flex">
