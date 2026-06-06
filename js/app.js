@@ -111,6 +111,14 @@ function switchTab(t,skipHistory){
     b.classList.toggle('active',['calendar','journal','tasks','gantt'][i]===t);
   });
   if(!['detail','jdetail','search'].includes(t))prevTab=t;
+  /* jdetail 뒤로가기 버튼 텍스트 동적 설정 */
+  if(t==='jdetail'){
+    const backBtn=document.querySelector('#view-jdetail .back-btn');
+    if(backBtn){
+      const labels={'calendar':'← 캘린더로','journal':'← 업무일지 목록','search':'← 검색으로'};
+      backBtn.textContent=labels[prevTab]||'← 뒤로';
+    }
+  }
   if(t!=='search'){
     document.getElementById('nav-search-input').value='';
     document.getElementById('search-bar-input').value='';
@@ -134,11 +142,25 @@ async function reloadTab(t){
       const dailies=await dailyLoad();
       Object.keys(JOURNALS).forEach(k=>delete JOURNALS[k]);
       dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
-      renderJournalList();
+      /* jdetail에서 돌아온 경우 더보기 상태 보존 — 목록 재렌더링 스킵 */
+      if(prevTab==='jdetail'){
+        /* 현재 표시된 아이템만 텍스트 갱신 */
+        document.querySelectorAll('.jlist-item').forEach(item=>{
+          const dt=item.querySelector('.jlist-date')?.textContent?.split(' ')[0];
+          if(!dt)return;
+          const textEl=item.querySelector('.jlist-text');
+          if(!textEl)return;
+          const text=JOURNALS[dt]||'';
+          textEl.innerHTML=text
+            ?text.slice(0,120)+(text.length>120?'…':'')
+            :'<span style="color:var(--text3);font-style:italic">작성된 일지가 없습니다.</span>';
+        });
+      } else {
+        renderJournalList();
+      }
     } else if(t==='tasks'){
       ISSUES=await issueLoad();renderTaskList();
     } else if(t==='gantt'){
-      ganttMinDate=null;ganttMaxDate=null;
       ISSUES=await issueLoad();renderGantt();
     }
   }catch(e){console.error('탭 리로드 실패',e);}

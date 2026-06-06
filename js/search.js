@@ -28,7 +28,7 @@ function doSearch(){
         <span class="sri-date">${dt} (${DOW[d.getDay()]})</span>
         <span style="font-size:10px;padding:2px 7px;border-radius:3px;background:#E8E6E0;color:var(--text2)">업무일지</span>
       </div><div class="sri-body">${highlight(content)}</div>`;
-      item.onclick=()=>openJournalDetail(dt);
+      item.onclick=()=>{prevTab='search';openJournalDetail(dt);};
       dailyEl.appendChild(item);
     });
   }

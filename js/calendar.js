@@ -329,23 +329,29 @@ function mergeGeneratedReport(generatedText,existingText){
 }
 async function loadReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
+  const btn=document.querySelector(`#${type==='month'?'month':'week'}-report-box .btn-sm.primary`);
   const period=getReportPeriod(type);
   ta.value='보고서를 불러오는 중입니다...';
   try{
-    ta.value=type==='month'
+    const content=type==='month'
       ?await monthlyLoad(period.key)
       :await weeklyLoad(period.key);
+    ta.value=content;
+    if(btn)btn.textContent=content?'수정':'저장';
   }catch(e){
     ta.value='';
+    if(btn)btn.textContent='저장';
     alert('보고서를 불러오는 중 오류가 발생했습니다: '+e.message);
   }
 }
 async function saveReport(type){
   const ta=document.getElementById(type==='month'?'month-report-ta':'week-report-ta');
+  const btn=document.querySelector(`#${type==='month'?'month':'week'}-report-box .btn-sm.primary`);
   const period=getReportPeriod(type);
   try{
     if(type==='month')await monthlySave(period.key,ta.value);
     else await weeklySave(period.key,ta.value);
+    if(btn)btn.textContent='수정';
     alert(`${period.label} 보고서를 저장했습니다.`);
   }catch(e){
     alert('보고서 저장 중 오류가 발생했습니다: '+e.message);

@@ -105,7 +105,6 @@ function openJournalDetail(dt,isNew){
     <div class="issue-row-arrow">›</div>`;
     row.onclick=()=>{prevTab='jdetail';openDetail(iss.seq);};
     issBox.appendChild(row);
-  });
   prevTab='journal';switchTab('jdetail');
 }
 function onJournalEdit(){
