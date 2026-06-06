@@ -252,6 +252,11 @@
 
   <!-- GANTT -->
   <div class="view gantt-view" id="view-gantt">
+    <div class="gantt-topbar">
+      <button class="cal-nav" onclick="expandGantt(-3)">‹</button>
+      <button class="cal-today-btn" onclick="scrollGanttToday()">오늘</button>
+      <button class="cal-nav" onclick="expandGantt(3)">›</button>
+    </div>
     <div class="gantt-scroll">
       <div class="gantt-wrap" id="gantt-wrap"></div>
     </div>

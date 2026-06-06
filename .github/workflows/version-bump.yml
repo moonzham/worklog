@@ -40,5 +40,5 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add index.html
-          git commit -m "chore: ver bump" || exit 0
+          git commit -m "chore: ver bump [skip ci]" || exit 0
           git push

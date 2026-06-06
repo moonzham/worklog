@@ -192,7 +192,8 @@ td.td-hol .day-num{color:var(--red)!important}
 .progress-textarea{width:100%;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;background:var(--bg);color:var(--text);line-height:1.6;min-height:280px}
 .progress-textarea:focus{outline:none;border-color:var(--border2)}
 .detail-save-row{display:flex;justify-content:flex-end;margin-top:10px;gap:6px}
-.gantt-view{overflow:hidden}
+.gantt-view{overflow:hidden;flex-direction:column}
+.gantt-topbar{display:flex;align-items:center;gap:8px;padding:10px 20px 0;flex-shrink:0}
 .gantt-scroll{flex:1;overflow:auto;padding:20px}
 .gantt-wrap{min-width:860px}
 .gantt-hdr-row{display:flex;border-bottom:2px solid var(--border);background:var(--bg)}

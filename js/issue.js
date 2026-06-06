@@ -6,6 +6,7 @@ async function deleteIssueDetail(){
   if(!confirm(`"${title}" 이슈를 삭제하시겠습니까?`))return;
   try{
     await issueDelete(seq);
+    ganttMinDate=null;ganttMaxDate=null;
     ISSUES=await issueLoad();
     renderTaskList();renderGantt();renderCalendar();
     goBack();
@@ -14,19 +15,33 @@ async function deleteIssueDetail(){
   }
 }
 
-/* ── 간트 월 상태 ── */
-let ganttYear=new Date().getFullYear();
-let ganttMonth=new Date().getMonth()+1;
+/* ── 간트 범위 상태 ── */
+let ganttMinDate=null; /* Date 객체, 월 첫날 기준 */
+let ganttMaxDate=null; /* Date 객체, 월 말일 기준 */
 
-function changeGanttMonth(dir){
-  ganttMonth+=dir;
-  if(ganttMonth>12){ganttMonth=1;ganttYear++;}
-  if(ganttMonth<1){ganttMonth=12;ganttYear--;}
-  renderGantt();
+function expandGantt(months){
+  if(!ganttMinDate||!ganttMaxDate)return;
+  if(months<0){
+    /* 왼쪽 확장 */
+    ganttMinDate=new Date(ganttMinDate.getFullYear(),ganttMinDate.getMonth()+months,1);
+  } else {
+    /* 오른쪽 확장 */
+    ganttMaxDate=new Date(ganttMaxDate.getFullYear(),ganttMaxDate.getMonth()+months+1,0);
+  }
+  renderGantt(true); /* skipScroll=true: 확장 시 오늘로 스크롤 안 함 */
 }
-function resetGanttMonth(){
-  const t=new Date();ganttYear=t.getFullYear();ganttMonth=t.getMonth()+1;
-  renderGantt();
+function scrollGanttToday(){
+  const scroll=document.querySelector('.gantt-scroll');
+  const wrap=document.getElementById('gantt-wrap');
+  if(!scroll||!wrap)return;
+  const today=new Date();today.setHours(0,0,0,0);
+  const todayStr2=today.toISOString().slice(0,10);
+  /* ganttMinDate 기준으로 오늘 인덱스 계산 */
+  const diffMs=today-ganttMinDate;
+  const diffDays=Math.floor(diffMs/86400000);
+  const cw=26;
+  const todayX=diffDays*cw+210;
+  scroll.scrollLeft=Math.max(0,todayX-scroll.clientWidth/2);
 }
 
 /* ── TASK LIST ── */
@@ -155,17 +170,14 @@ async function saveIssueDetail(){
 }
 
 /* ── GANTT ── */
-function renderGantt(){
+function renderGantt(skipScroll){
   const wrap=document.getElementById('gantt-wrap');
   const scroll=document.querySelector('.gantt-scroll');
   if(!wrap)return;
 
-  /* 월 레이블 제거 (전체 기간 방식이므로 불필요) */
-  const label=document.getElementById('gantt-month-label');
-  if(label)label.textContent='';
-
   const activeIssues=(ISSUES||[]).filter(i=>i.devStart);
   if(!activeIssues.length){
+    ganttMinDate=null;ganttMaxDate=null;
     wrap.innerHTML='<div style="text-align:center;color:var(--text3);padding:3rem;font-size:13px">등록된 업무가 없습니다</div>';
     return;
   }
@@ -173,24 +185,23 @@ function renderGantt(){
   const today=new Date();today.setHours(0,0,0,0);
   const todayStr2=today.toISOString().slice(0,10);
 
-  /* 전체 기간 계산 */
-  const allStarts=activeIssues.map(i=>new Date(i.devStart+'T00:00:00'));
-  const endCap=new Date(today);endCap.setFullYear(endCap.getFullYear()+1);
-  const allEnds=activeIssues.map(i=>{
-    const e=i.prodDate||i.targetDate;
-    return e?new Date(e+'T00:00:00'):endCap;
-  });
-  /* 최소 시작일: 이슈 중 가장 이른 날, 최대 종료일: 오늘+30 or 이슈 중 가장 늦은 날 중 큰 것 */
-  let minDate=new Date(Math.min(...allStarts));
-  let maxDate=new Date(Math.max(...allEnds,today.getTime()+30*86400000));
-
-  /* 월 단위로 앞뒤 여유 */
-  minDate=new Date(minDate.getFullYear(),minDate.getMonth(),1);
-  maxDate=new Date(maxDate.getFullYear(),maxDate.getMonth()+1,0);
+  /* 최초 진입 시에만 범위 초기화 */
+  if(!ganttMinDate||!ganttMaxDate){
+    const allStarts=activeIssues.map(i=>new Date(i.devStart+'T00:00:00'));
+    const endCap=new Date(today);endCap.setFullYear(endCap.getFullYear()+1);
+    const allEnds=activeIssues.map(i=>{
+      const e=i.prodDate||i.targetDate;
+      return e?new Date(e+'T00:00:00'):endCap;
+    });
+    let minD=new Date(Math.min(...allStarts));
+    let maxD=new Date(Math.max(...allEnds,today.getTime()+30*86400000));
+    ganttMinDate=new Date(minD.getFullYear(),minD.getMonth(),1);
+    ganttMaxDate=new Date(maxD.getFullYear(),maxD.getMonth()+1,0);
+  }
 
   /* 전체 일수 배열 생성 */
   const dates=[];
-  for(let d=new Date(minDate);d<=maxDate;d.setDate(d.getDate()+1)){
+  for(let d=new Date(ganttMinDate);d<=ganttMaxDate;d.setDate(d.getDate()+1)){
     dates.push(d.toISOString().slice(0,10));
   }
   const cw=26; /* 하루 너비 */
@@ -267,8 +278,8 @@ function renderGantt(){
     ${rows}
   </div>`;
 
-  /* 오늘 기준으로 스크롤 (오늘이 화면 중앙쯤 오도록) */
-  if(scroll&&dateIdx[todayStr2]!==undefined){
+  /* 오늘 기준으로 스크롤 (skipScroll=true면 스킵) */
+  if(!skipScroll&&scroll&&dateIdx[todayStr2]!==undefined){
     const todayX=dateIdx[todayStr2]*cw+210;
     scroll.scrollLeft=Math.max(0,todayX-scroll.clientWidth/2);
   }

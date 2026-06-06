@@ -138,6 +138,7 @@ async function reloadTab(t){
     } else if(t==='tasks'){
       ISSUES=await issueLoad();renderTaskList();
     } else if(t==='gantt'){
+      ganttMinDate=null;ganttMaxDate=null;
       ISSUES=await issueLoad();renderGantt();
     }
   }catch(e){console.error('탭 리로드 실패',e);}
