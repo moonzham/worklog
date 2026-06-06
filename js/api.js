@@ -1,5 +1,33 @@
+/* ═══════════════════════════════════════════════════════════════
+   외부 API 설정
+   ───────────────────────────────────────────────────────────────
+   1. Google OAuth 2.0 (Google Identity Services)
+      - 용도: 구글 계정 로그인 및 accessToken 발급
+      - 라이브러리: https://accounts.google.com/gsi/client (index.html에서 로드)
+      - 콘솔: https://console.cloud.google.com → API 및 서비스 → 사용자 인증 정보
+      - CLIENT_ID: OAuth 2.0 클라이언트 ID
+      - SCOPES: 요청할 권한 범위 (Sheets 읽기/쓰기 + Drive 파일)
+
+   2. Google Sheets API v4
+      - 용도: ISSUE / DAILY / WEEKLY / MONTHLY / COMMON_CODE 데이터 CRUD
+      - 엔드포인트: https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}
+      - 인증: OAuth accessToken을 Authorization 헤더에 Bearer로 전달
+      - 콘솔: https://console.cloud.google.com → API 및 서비스 → Google Sheets API 활성화
+      - SHEET_ID: 연결된 Google Sheets 문서 ID (URL에서 확인 가능)
+
+   3. Gemini AI (Google Apps Script 프록시 경유)
+      - 용도: 주간/월간 보고서 AI 자동 생성
+      - 직접 호출 불가 (CORS 문제) → Google Apps Script를 프록시로 사용
+      - AI_PROXY_URL: Apps Script 배포 URL (웹 앱으로 배포된 프록시)
+      - Apps Script 내부에서 Gemini Flash API 호출 후 결과 반환
+      - Apps Script 콘솔: https://script.google.com
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Google OAuth 2.0 설정 ── */
 const CLIENT_ID='603081180385-5dmfebn8mm239lod4solqkig2molj886.apps.googleusercontent.com';
 const SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+
+/* ── 2. Google Sheets API v4 설정 ── */
 const SHEET_ID='11EkPFAcWP57VLHIbDuu4e7ntKpv8JxoUUuhJppeA5io';
 const API_BASE=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
 let accessToken='';
@@ -58,8 +86,13 @@ function dateOffset(n){
   return d.toISOString().slice(0,10);
 }
 
+/* ── 3. Gemini AI 프록시 설정 (Google Apps Script 경유) ── */
 const AI_PROXY_URL = 'https://script.google.com/macros/s/AKfycbzqC0ln6Ja1t4QX24NiXuj5KFgN0cbMk64mm4XRLHbT11doTcgjs6h7IDB5TNDIzSRa/exec';
 
+/* Gemini AI 호출 함수
+ * - prompt: 보고서 생성용 프롬프트 문자열
+ * - Apps Script 프록시로 POST 요청 → Gemini Flash API 호출 → 결과 반환
+ * - 응답: { ok: boolean, text: string, error?: string } */
 async function callGemini(prompt) {
   const res = await fetch(AI_PROXY_URL, {
     method: 'POST',

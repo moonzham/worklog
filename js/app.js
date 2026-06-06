@@ -48,6 +48,10 @@ function issuesForDateStr(dt){
   });
 }
 
+/* Google Identity Services (GIS) OAuth 토큰 클라이언트 초기화
+ * - index.html에서 로드한 GIS 라이브러리(accounts.google.com/gsi/client) 사용
+ * - tokenResponse.access_token: Sheets API 호출 시 Authorization 헤더에 사용
+ * - localStorage에 token + expiry 저장 → 새로고침 시 재로그인 방지 */
 function initTokenClient(){
   if(tokenClient)return;
   tokenClient=google.accounts.oauth2.initTokenClient({
