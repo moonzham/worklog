@@ -38,7 +38,7 @@
     <button class="tab-btn" onclick="switchTab('tasks')">업무목록</button>
     <button class="tab-btn" onclick="switchTab('gantt')">간트차트</button>
     <div class="nav-spacer"></div>
-    <span class="nav-version">ver 1.05</span>
+    <span class="nav-version">ver 1.08</span>
     <div class="nav-search-wrap">
       <input class="nav-search-input" id="nav-search-input" placeholder="일지·업무 검색" onkeydown="if(event.key==='Enter')doSearch()">
       <button class="nav-search-btn" onclick="doSearch()">🔍</button>
@@ -252,6 +252,11 @@
 
   <!-- GANTT -->
   <div class="view gantt-view" id="view-gantt">
+    <div class="gantt-topbar">
+      <button class="cal-nav" onclick="expandGantt(-3)">‹</button>
+      <button class="cal-today-btn" onclick="scrollGanttToday()">오늘</button>
+      <button class="cal-nav" onclick="expandGantt(3)">›</button>
+    </div>
     <div class="gantt-scroll">
       <div class="gantt-wrap" id="gantt-wrap"></div>
     </div>
