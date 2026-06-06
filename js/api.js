@@ -33,7 +33,29 @@ const API_BASE=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
 let accessToken='';
 let tokenClient=null;
 
+/* 토큰 만료 5분 전이면 조용히 재발급 (팝업 없음)
+ * GIS에서 이미 동의한 계정이면 prompt:'' 로 자동 재발급 가능 */
+function ensureFreshToken(){
+  return new Promise((resolve,reject)=>{
+    const expiry=parseInt(localStorage.getItem('wl_token_expiry')||'0');
+    /* 만료까지 5분 이상 남았으면 그냥 통과 */
+    if(accessToken&&Date.now()<expiry-300000){resolve();return;}
+    if(!tokenClient){reject(new Error('tokenClient 미초기화'));return;}
+    /* 기존 callback 백업 후 일회성 재발급 callback 설정 */
+    tokenClient.callback=(tokenResponse)=>{
+      if(tokenResponse.error){reject(new Error(tokenResponse.error));return;}
+      accessToken=tokenResponse.access_token;
+      const newExpiry=Date.now()+(tokenResponse.expires_in||3600)*1000-60000;
+      localStorage.setItem('wl_token',accessToken);
+      localStorage.setItem('wl_token_expiry',newExpiry);
+      resolve();
+    };
+    tokenClient.requestAccessToken({prompt:''});
+  });
+}
+
 async function sheetsGet(range){
+  await ensureFreshToken();
   const res=await fetch(`${API_BASE}/values/${encodeURIComponent(range)}`,{
     headers:{Authorization:`Bearer ${accessToken}`}
   });
@@ -41,6 +63,7 @@ async function sheetsGet(range){
   return res.json();
 }
 async function sheetsAppend(range,values){
+  await ensureFreshToken();
   const res=await fetch(`${API_BASE}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,{
     method:'POST',
     headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
@@ -50,6 +73,7 @@ async function sheetsAppend(range,values){
   return res.json();
 }
 async function sheetsUpdate(range,values){
+  await ensureFreshToken();
   const res=await fetch(`${API_BASE}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,{
     method:'PUT',
     headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
@@ -59,6 +83,7 @@ async function sheetsUpdate(range,values){
   return res.json();
 }
 async function sheetsBatchUpdate(data){
+  await ensureFreshToken();
   const res=await fetch(`${API_BASE}/values:batchUpdate`,{
     method:'POST',
     headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},

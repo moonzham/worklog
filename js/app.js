@@ -57,6 +57,7 @@ function initTokenClient(){
   tokenClient=google.accounts.oauth2.initTokenClient({
     client_id:CLIENT_ID,
     scope:SCOPES,
+    /* 로그인 시 초기 callback — ensureFreshToken이 필요 시 덮어씀 */
     callback:(tokenResponse)=>{
       if(tokenResponse.error)return;
       accessToken=tokenResponse.access_token;
