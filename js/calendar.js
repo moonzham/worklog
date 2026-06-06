@@ -182,7 +182,7 @@ function buildWeeksForMonth(year=curYear,month=curMonth){
         .filter(iss=>iss.useYn!=='N'&&issueOverlapsPeriod(iss,startDate,endDate))
         .sort((a,b)=>getIssueReportStartDate(a).localeCompare(getIssueReportStartDate(b)))
         .map(iss=>({
-          issueNo:iss.id||iss.seq,
+          issueNo:iss.id||'',
           issueTitle:iss.title,
           projectName:getProjectName(iss.project),
           status:iss.status,
@@ -205,7 +205,7 @@ function buildReportAiPayload(type){
     .filter(iss=>iss.useYn!=='N'&&issueOverlapsPeriod(iss,period.startDate,period.endDate))
     .sort((a,b)=>getIssueReportStartDate(a).localeCompare(getIssueReportStartDate(b)))
     .map(iss=>({
-      issueNo:iss.id||iss.seq,
+      issueNo:iss.id||'',
       issueTitle:iss.title,
       projectName:getProjectName(iss.project),
       status:iss.status,
@@ -241,7 +241,7 @@ function buildReportPrompt(payload){
     '작성 기준:',
     '- 업무일지 journals[].content 원문을 가장 우선 근거로 사용한다. 업무 관련 내용은 반드시 보고서에 반영한다.',
     '- issues[]는 이슈번호, 제목, 상태, 프로젝트, 운영반영일, 진행사항을 확인하기 위한 보조 자료로 사용한다.',
-    '- 특정 이슈를 언급할 때는 반드시 "[issueNo] issueTitle" 형식으로 표기하되, "issueNo"가 없을 경우에는 "issueTitle"로만 표기한다.',
+    '- 특정 이슈를 언급할 때는 반드시 "[issueNo] issueTitle" 형식으로 표기하되, "issueNo"가 빈 값인 경우에는 "[issueTitle]"로만 표기한다.',
     '- issues[].reportStartDate가 해당되는 주차에는 issues[].progressNote의 내용도 진행 상황에 적절히 포함한다.',
     '- "issueNo: issueTitle", "issueNo - issueTitle", Markdown 굵게(**텍스트**) 형식은 절대 사용하지 않는다.',
     '- 데이터에 없는 내용은 추측하지 말고, 확인되지 않은 완료/배포/일정은 단정하지 않는다.',
@@ -253,6 +253,7 @@ function buildReportPrompt(payload){
     '- 표(table) 형식을 사용하지 않는다.',
     '- JSON, payload, 데이터 미리보기 같은 내부 표현을 언급하지 않는다.',
     '- 제목 줄 없이 본문만 작성한다.',
+    '- 주차별 이슈 내용을 입력할 때에는 issueNo, issueTitle를 재언급하지 않는다.',
 	'- 주차별 이슈 없는 일반 작업은 "기타 작업" 항목 하나로만 묶는다.',
     '- 관련 데이터가 거의 없으면 데이터가 부족하다고 간단히 적는다.',
   ];
@@ -263,11 +264,11 @@ function buildReportPrompt(payload){
       '',
       '출력 형식 (반드시 아래 형식을 그대로 따른다):',
       '<주요 성과>',
-      '* [이슈코드] 이슈명',
+      '* [이슈코드] 이슈명 (이슈코드가 빈값인 경우 [이슈명])',
       ' - 수행한 작업 내용과 확인된 결과가 있으면 1~2줄로 요약한다.',
       '',
       '<진행 중 업무>',
-      '* [이슈코드] 이슈명',
+      '* [이슈코드] 이슈명 (이슈코드가 빈값인 경우 [이슈명])',
       ' - 현재 진행 중인 작업과 다음에 이어서 할 작업을 한 문장으로 요약한다.',
       '',
       '<리스크/특이사항>',
@@ -282,11 +283,11 @@ function buildReportPrompt(payload){
       '- 주차 데이터가 비어있으면 "- 업무 기록 없음" 으로 표기한다.',
       '',
       '<1주차>',
-      '* [이슈코드] 이슈명',
+      '* [이슈코드] 이슈명 (이슈코드가 빈값인 경우 [이슈명])',
       ' - 작업한 내용과 진행 상황, 성과, 이슈, 지연사항이 있으면 1~2줄로 요약한다.',
       '',
       '<2주차>',
-      '* [이슈코드] 이슈명',
+      '* [이슈코드] 이슈명 (이슈코드가 빈값인 경우 [이슈명])',
       ' - 작업한 내용과 진행 상황, 성과, 이슈, 지연사항이 있으면 1~2줄로 요약한다.',
       '',
       '(이하 주차 반복)',
