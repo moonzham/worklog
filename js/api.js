@@ -40,8 +40,18 @@ function ensureFreshToken(){
     const expiry=parseInt(localStorage.getItem('wl_token_expiry')||'0');
     /* 만료까지 5분 이상 남았으면 그냥 통과 */
     if(accessToken&&Date.now()<expiry-300000){resolve();return;}
-    if(!tokenClient){reject(new Error('tokenClient 미초기화'));return;}
-    /* 기존 callback 백업 후 일회성 재발급 callback 설정 */
+    /* tokenClient 미초기화 (localStorage 자동로그인 케이스)
+     * → 토큰이 아직 유효하면 통과, 만료됐으면 로그인 화면으로 */
+    if(!tokenClient){
+      if(accessToken&&Date.now()<expiry){resolve();}
+      else{
+        document.getElementById('view-login').style.display='flex';
+        document.getElementById('main-app').style.display='none';
+        reject(new Error('세션이 만료되었습니다. 다시 로그인해주세요.'));
+      }
+      return;
+    }
+    /* 조용히 재발급 */
     tokenClient.callback=(tokenResponse)=>{
       if(tokenResponse.error){reject(new Error(tokenResponse.error));return;}
       accessToken=tokenResponse.access_token;
