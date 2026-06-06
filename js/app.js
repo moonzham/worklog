@@ -100,7 +100,7 @@ function doLogout(){
   document.getElementById('main-app').style.display='none';
 }
 
-function switchTab(t,skipHistory){
+function switchTab(t,skipHistory,skipReload){
   ['calendar','journal','jdetail','tasks','detail','gantt','search'].forEach(v=>{
     const el=document.getElementById('view-'+v);
     if(el){el.style.display='none';el.classList.remove('active');}
@@ -111,14 +111,14 @@ function switchTab(t,skipHistory){
     b.classList.toggle('active',['calendar','journal','tasks','gantt'][i]===t);
   });
   if(!['detail','jdetail','search'].includes(t))prevTab=t;
-  if(t!=='search'){
+  if(!skipReload&&t!=='search'){
     document.getElementById('nav-search-input').value='';
     document.getElementById('search-bar-input').value='';
     document.getElementById('search-keyword').style.display='none';
     document.getElementById('search-results').innerHTML='';
   }
   if(!skipHistory)history.pushState({tab:t},'',`#${t}`);
-  if(!['detail','jdetail','search'].includes(t))reloadTab(t);
+  if(!skipReload&&!['detail','jdetail','search'].includes(t))reloadTab(t);
 }
 async function reloadTab(t){
   if(!accessToken)return;
@@ -153,24 +153,28 @@ async function reloadTab(t){
     } else if(t==='tasks'){
       ISSUES=await issueLoad();renderTaskList();
     } else if(t==='gantt'){
-      ganttMinDate=null;ganttMaxDate=null;
       ISSUES=await issueLoad();renderGantt();
     }
   }catch(e){console.error('탭 리로드 실패',e);}
 }
-function goBack(){history.back();}
+function goBack(){switchTab(prevTab);}
 window.addEventListener('popstate',e=>{
   const t=(e.state&&e.state.tab)||(location.hash.replace('#','')||'calendar');
-  switchTab(t,true);
+  switchTab(t,true,true);
 });
 
 function openDetail(seq,fromGantt){
   const iss=ISSUES.find(i=>i.seq===seq);if(!iss)return;
   fillDetailForm(iss);
+  const btn=document.getElementById('detail-back-btn');
+  if(fromGantt){btn.textContent='← 간트차트로';btn.onclick=()=>switchTab('gantt');}
+  else{btn.textContent='← 목록으로';btn.onclick=goBack;}
   switchTab('detail');
 }
 function openNewTask(){
   fillDetailForm(null);
+  const btn=document.getElementById('detail-back-btn');
+  btn.textContent='← 목록으로';btn.onclick=goBack;
   prevTab='tasks';switchTab('detail');
 }
 function renderProjectSelect(selectedCode){
