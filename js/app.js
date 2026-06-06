@@ -111,7 +111,7 @@ function switchTab(t,skipHistory,skipReload){
     b.classList.toggle('active',['calendar','journal','tasks','gantt'][i]===t);
   });
   if(!['detail','jdetail','search'].includes(t))prevTab=t;
-  if(!skipReload&&t!=='search'){
+  if(!skipReload&&!['detail','jdetail','search'].includes(t)){
     document.getElementById('nav-search-input').value='';
     document.getElementById('search-bar-input').value='';
     document.getElementById('search-keyword').style.display='none';
