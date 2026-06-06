@@ -1,8 +1,11 @@
 /* ── SEARCH ── */
-function doSearch(){
+function doSearch(fromNav){
   const navInput=document.getElementById('nav-search-input');
   const barInput=document.getElementById('search-bar-input');
-  const kw=(barInput.value||navInput.value).trim();
+  /* fromNav=true면 상단 검색창 우선, 아니면 barInput 우선 */
+  const kw=fromNav
+    ?(navInput.value||barInput.value).trim()
+    :(barInput.value||navInput.value).trim();
   if(!kw)return;
   navInput.value=kw;barInput.value=kw;
   switchTab('search');

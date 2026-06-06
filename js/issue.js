@@ -34,7 +34,7 @@ function scrollGanttToday(){
   const today=new Date();today.setHours(0,0,0,0);
   const diffDays=Math.floor((today-ganttMinDate)/86400000);
   const cw=26;
-  scrollArea.scrollLeft=Math.max(0,diffDays*cw-scrollArea.clientWidth/2);
+  scrollArea.scrollLeft=Math.max(0,diffDays*cw-40);
 }
 
 /* ── TASK LIST ── */
@@ -260,12 +260,12 @@ function renderGantt(skipScroll){
     </div>
   </div>`;
 
-  /* 오늘 기준 스크롤 */
+  /* 오늘 기준 스크롤 — 오늘이 좌측에 오도록 */
   if(!skipScroll&&dateIdx[todayStr2]!==undefined){
     const scrollArea=wrap.querySelector('.gantt-scroll-area');
     if(scrollArea){
       const todayX=dateIdx[todayStr2]*cw;
-      scrollArea.scrollLeft=Math.max(0,todayX-scrollArea.clientWidth/2);
+      scrollArea.scrollLeft=Math.max(0,todayX-40);
     }
   }
 }

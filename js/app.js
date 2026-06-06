@@ -134,22 +134,7 @@ async function reloadTab(t){
       const dailies=await dailyLoad();
       Object.keys(JOURNALS).forEach(k=>delete JOURNALS[k]);
       dailies.forEach(d=>{JOURNALS[d.date]=d.content;});
-      /* jdetail에서 돌아온 경우 더보기 상태 보존 — 목록 재렌더링 스킵 */
-      if(prevTab==='jdetail'){
-        /* 현재 표시된 아이템만 텍스트 갱신 */
-        document.querySelectorAll('.jlist-item').forEach(item=>{
-          const dt=item.querySelector('.jlist-date')?.textContent?.split(' ')[0];
-          if(!dt)return;
-          const textEl=item.querySelector('.jlist-text');
-          if(!textEl)return;
-          const text=JOURNALS[dt]||'';
-          textEl.innerHTML=text
-            ?text.slice(0,120)+(text.length>120?'…':'')
-            :'<span style="color:var(--text3);font-style:italic">작성된 일지가 없습니다.</span>';
-        });
-      } else {
-        renderJournalList();
-      }
+      renderJournalList();
     } else if(t==='tasks'){
       ISSUES=await issueLoad();renderTaskList();
     } else if(t==='gantt'){
@@ -157,7 +142,7 @@ async function reloadTab(t){
     }
   }catch(e){console.error('탭 리로드 실패',e);}
 }
-function goBack(){switchTab(prevTab);}
+function goBack(){history.back();}
 window.addEventListener('popstate',e=>{
   const t=(e.state&&e.state.tab)||(location.hash.replace('#','')||'calendar');
   switchTab(t,true,true);
@@ -166,15 +151,10 @@ window.addEventListener('popstate',e=>{
 function openDetail(seq,fromGantt){
   const iss=ISSUES.find(i=>i.seq===seq);if(!iss)return;
   fillDetailForm(iss);
-  const btn=document.getElementById('detail-back-btn');
-  if(fromGantt){btn.textContent='← 간트차트로';btn.onclick=()=>switchTab('gantt');}
-  else{btn.textContent='← 목록으로';btn.onclick=goBack;}
   switchTab('detail');
 }
 function openNewTask(){
   fillDetailForm(null);
-  const btn=document.getElementById('detail-back-btn');
-  btn.textContent='← 목록으로';btn.onclick=goBack;
   prevTab='tasks';switchTab('detail');
 }
 function renderProjectSelect(selectedCode){

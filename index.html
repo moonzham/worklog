@@ -38,10 +38,10 @@
     <button class="tab-btn" onclick="switchTab('tasks')">업무목록</button>
     <button class="tab-btn" onclick="switchTab('gantt')">간트차트</button>
     <div class="nav-spacer"></div>
-    <span class="nav-version">ver 1.08</span>
+    <span class="nav-version">ver 1.05</span>
     <div class="nav-search-wrap">
-      <input class="nav-search-input" id="nav-search-input" placeholder="일지·업무 검색" onkeydown="if(event.key==='Enter')doSearch()">
-      <button class="nav-search-btn" onclick="doSearch()">🔍</button>
+      <input class="nav-search-input" id="nav-search-input" placeholder="일지·업무 검색" onkeydown="if(event.key==='Enter')doSearch(true)">
+      <button class="nav-search-btn" onclick="doSearch(true)">🔍</button>
     </div>
     <button class="logout-btn" onclick="doLogout()">로그아웃</button>
   </div>
@@ -126,7 +126,7 @@
   <!-- JOURNAL DETAIL -->
   <div class="view jdetail-view" id="view-jdetail">
     <div class="jdetail-inner">
-      <button class="back-btn" onclick="goBack()">← 뒤로</button>
+      <button class="back-btn" onclick="goBack()">← 업무일지 목록</button>
       <div class="jdetail-card">
         <div class="jdetail-date" id="jd-date"></div>
         <div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:6px">업무일지</div>
@@ -180,7 +180,7 @@
   <!-- ISSUE DETAIL -->
   <div class="view detail-view" id="view-detail">
     <div class="detail-inner">
-      <button class="back-btn" id="detail-back-btn" onclick="goBack()">← 뒤로</button>
+      <button class="back-btn" id="detail-back-btn" onclick="goBack()">← 목록으로</button>
       <div class="detail-card">
         <div class="detail-id-row">
           <input type="hidden" id="d-seq">
