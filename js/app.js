@@ -111,14 +111,6 @@ function switchTab(t,skipHistory){
     b.classList.toggle('active',['calendar','journal','tasks','gantt'][i]===t);
   });
   if(!['detail','jdetail','search'].includes(t))prevTab=t;
-  /* jdetail 뒤로가기 버튼 텍스트 동적 설정 */
-  if(t==='jdetail'){
-    const backBtn=document.querySelector('#view-jdetail .back-btn');
-    if(backBtn){
-      const labels={'calendar':'← 캘린더로','journal':'← 업무일지 목록','search':'← 검색으로'};
-      backBtn.textContent=labels[prevTab]||'← 뒤로';
-    }
-  }
   if(t!=='search'){
     document.getElementById('nav-search-input').value='';
     document.getElementById('search-bar-input').value='';
@@ -161,11 +153,12 @@ async function reloadTab(t){
     } else if(t==='tasks'){
       ISSUES=await issueLoad();renderTaskList();
     } else if(t==='gantt'){
+      ganttMinDate=null;ganttMaxDate=null;
       ISSUES=await issueLoad();renderGantt();
     }
   }catch(e){console.error('탭 리로드 실패',e);}
 }
-function goBack(){switchTab(prevTab);}
+function goBack(){history.back();}
 window.addEventListener('popstate',e=>{
   const t=(e.state&&e.state.tab)||(location.hash.replace('#','')||'calendar');
   switchTab(t,true);
@@ -174,15 +167,10 @@ window.addEventListener('popstate',e=>{
 function openDetail(seq,fromGantt){
   const iss=ISSUES.find(i=>i.seq===seq);if(!iss)return;
   fillDetailForm(iss);
-  const btn=document.getElementById('detail-back-btn');
-  if(fromGantt){btn.textContent='← 간트차트로';btn.onclick=()=>switchTab('gantt');}
-  else{btn.textContent='← 목록으로';btn.onclick=goBack;}
   switchTab('detail');
 }
 function openNewTask(){
   fillDetailForm(null);
-  const btn=document.getElementById('detail-back-btn');
-  btn.textContent='← 목록으로';btn.onclick=goBack;
   prevTab='tasks';switchTab('detail');
 }
 function renderProjectSelect(selectedCode){

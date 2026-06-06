@@ -194,8 +194,17 @@ td.td-hol .day-num{color:var(--red)!important}
 .detail-save-row{display:flex;justify-content:flex-end;margin-top:10px;gap:6px}
 .gantt-view{overflow:hidden;flex-direction:column}
 .gantt-topbar{display:flex;flex-direction:row;align-items:center;gap:8px;padding:10px 20px 0;flex-shrink:0}
-.gantt-scroll{flex:1;overflow:auto;padding:20px}
-.gantt-wrap{min-width:860px}
+.gantt-scroll{flex:1;overflow:hidden;padding:20px}
+.gantt-wrap{min-width:0}
+.gantt-inner{display:flex;height:100%;overflow:hidden}
+.gantt-fixed-col{width:210px;flex-shrink:0;overflow:hidden;border-right:1px solid var(--border);background:var(--bg);z-index:2}
+.gantt-task-col-hdr{height:52px;display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border)}
+.gantt-task-info-fixed{height:38px;display:flex;flex-direction:column;justify-content:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--border2)}
+.gantt-task-info-fixed:hover{background:var(--hover)}
+.gantt-scroll-area{flex:1;overflow-x:auto;overflow-y:hidden}
+.gantt-hdr-row-dates{display:flex;flex-direction:column;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1}
+.gantt-row-dates{height:38px;position:relative;display:flex;border-bottom:1px solid var(--border2);cursor:pointer}
+.gantt-row-dates:hover .gantt-day-cell{background:var(--hover)}
 .gantt-hdr-row{display:flex;border-bottom:2px solid var(--border);background:var(--bg)}
 .gantt-task-col{width:210px;min-width:210px;font-size:11px;color:var(--text2);padding:8px 12px;border-right:1px solid var(--border);font-weight:500}
 .gantt-day-hdr{font-size:9px;color:var(--text3);text-align:center;padding:3px 0;border-right:0.5px solid var(--border);flex:0 0 26px;min-width:26px}
