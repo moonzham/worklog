@@ -176,8 +176,8 @@ function renderGantt(){
   /* 전체 기간 계산 */
   const allStarts=activeIssues.map(i=>new Date(i.devStart+'T00:00:00'));
   const allEnds=activeIssues.map(i=>{
-    const e=i.prodDate||i.targetDate;
-    return e?new Date(e+'T00:00:00'):today;
+    const e=i.prodDate||i.targetDate||'9999-12-31';
+    return new Date(e+'T00:00:00');
   });
   /* 최소 시작일: 이슈 중 가장 이른 날, 최대 종료일: 오늘+30 or 이슈 중 가장 늦은 날 중 큰 것 */
   let minDate=new Date(Math.min(...allStarts));
@@ -228,7 +228,7 @@ function renderGantt(){
   let rows='';
   activeIssues.forEach(iss=>{
     const startDt=iss.devStart;
-    const endDt=iss.prodDate||iss.targetDate||todayStr2;
+    const endDt=iss.prodDate||iss.targetDate||'9999-12-31';
     const si=dateIdx[startDt]??0;
     const ei=dateIdx[endDt]??dates.length-1;
     const barL=si*cw;
@@ -244,7 +244,7 @@ function renderGantt(){
 
     rows+=`<div class="gantt-row" onclick="openDetail('${iss.seq}',true)">
       <div class="gantt-task-info">
-        <div class="gantt-task-id">${iss.id||iss.seq}</div>
+        <div class="gantt-task-id">${iss.id||''}</div>
         <div class="gantt-task-name">${iss.title}</div>
       </div>
       <div style="flex:1;position:relative;height:38px;display:flex">

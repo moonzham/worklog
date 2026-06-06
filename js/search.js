@@ -2,7 +2,7 @@
 function doSearch(){
   const navInput=document.getElementById('nav-search-input');
   const barInput=document.getElementById('search-bar-input');
-  const kw=(navInput.value||barInput.value).trim();
+  const kw=(barInput.value||navInput.value).trim();
   if(!kw)return;
   navInput.value=kw;barInput.value=kw;
   switchTab('search');
@@ -47,7 +47,7 @@ function doSearch(){
       const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
       const item=document.createElement('div');item.className='search-result-item';
       item.innerHTML=`<div class="sri-top">
-        <span class="sri-chip" style="background:${chipColor(iss)}">${iss.id||iss.seq}</span>
+        <span class="sri-chip" style="background:${chipColor(iss)}">${iss.id||''}</span>
         <span class="sri-title">${highlight(iss.title)}</span>
         <span class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</span>
       </div>${iss.progressNote?`<div class="sri-body">${highlight(iss.progressNote)}</div>`:''}`;

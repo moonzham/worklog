@@ -196,8 +196,8 @@ function fillDetailForm(iss){
   if(delBtn)delBtn.style.display=iss?'inline-block':'none';
   const link=iss?iss.link:'';
   const disp=document.getElementById('d-link-display');
-  if(link){disp.textContent=link;disp.href=link;}
-  else{disp.textContent='링크 없음';disp.href='#';}
+  if(link){disp.textContent=link;disp.href=link;disp.style.pointerEvents='auto';disp.style.color='';}
+  else{disp.textContent='링크 없음';disp.removeAttribute('href');disp.style.pointerEvents='none';disp.style.color='var(--text3)';}
   document.getElementById('d-link-input').value=link||'';
   document.getElementById('d-link-wrap').style.display='flex';
   document.getElementById('d-link-edit').style.display='none';
@@ -209,7 +209,8 @@ function toggleLinkEdit(){
 function saveLinkEdit(){
   const val=document.getElementById('d-link-input').value.trim();
   const disp=document.getElementById('d-link-display');
-  disp.textContent=val||'링크 없음';disp.href=val||'#';
+  if(val){disp.textContent=val;disp.href=val;disp.style.pointerEvents='auto';disp.style.color='';}
+  else{disp.textContent='링크 없음';disp.removeAttribute('href');disp.style.pointerEvents='none';disp.style.color='var(--text3)';}
   document.getElementById('d-link-wrap').style.display='flex';
   document.getElementById('d-link-edit').style.display='none';
 }

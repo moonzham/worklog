@@ -24,7 +24,7 @@ function makeJlistItem(dt){
     issHtml=`<div style="margin-top:2px">${issues.map(i=>{
       const s=STATUS_STYLE[i.status]||STATUS_STYLE['보류'];
       return `<div class="issue-row" data-seq="${i.seq}">
-        <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id||i.seq}</div>
+        <div class="issue-row-chip" style="background:${chipColor(i)}">${i.id||''}</div>
         <div class="issue-row-title">${i.title}</div>
         <div class="issue-row-status" style="background:${s.bg}">${i.status}</div>
         <div class="issue-row-arrow">›</div>
@@ -99,7 +99,7 @@ function openJournalDetail(dt,isNew){
   issues.forEach(iss=>{
     const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
     const row=document.createElement('div');row.className='issue-row';
-    row.innerHTML=`<div class="issue-row-chip" style="background:${chipColor(iss)}">${iss.id||iss.seq}</div>
+    row.innerHTML=`<div class="issue-row-chip" style="background:${chipColor(iss)}">${iss.id||''}</div>
     <div class="issue-row-title">${iss.title}</div>
     <div class="issue-row-status" style="background:${s.bg}">${iss.status}</div>
     <div class="issue-row-arrow">›</div>`;

@@ -32,7 +32,7 @@ function renderCalendar(){
         issues.slice(0,3).forEach(iss=>{
           const chip=document.createElement('div');chip.className='issue-chip';
           chip.style.background=chipColor(iss);
-          const label=iss.id||iss.seq;
+          const label=iss.id||'';
           const shortTitle=iss.title.length>14?iss.title.slice(0,14)+'…':iss.title;
           chip.textContent=label+' '+shortTitle;chip.title=iss.title;
           chip.onclick=(e)=>{e.stopPropagation();prevTab='calendar';openDetail(iss.seq);};
@@ -80,7 +80,7 @@ function selectDate(d){
   issues.forEach(iss=>{
     const s=STATUS_STYLE[iss.status]||STATUS_STYLE['보류'];
     const item=document.createElement('div');item.className='agenda-item';
-    item.innerHTML=`<div class="agenda-chip" style="background:${chipColor(iss)}">${iss.id||iss.seq}</div>
+    item.innerHTML=`<div class="agenda-chip" style="background:${chipColor(iss)}">${iss.id||''}</div>
     <div class="agenda-title">${iss.title}</div>
     <div class="status-badge" style="background:${s.bg};color:${s.color}">${iss.status}</div>
     <div class="agenda-arrow">›</div>`;
@@ -241,7 +241,8 @@ function buildReportPrompt(payload){
     '작성 기준:',
     '- 업무일지 journals[].content 원문을 가장 우선 근거로 사용한다. 업무 관련 내용은 반드시 보고서에 반영한다.',
     '- issues[]는 이슈번호, 제목, 상태, 프로젝트, 운영반영일, 진행사항을 확인하기 위한 보조 자료로 사용한다.',
-    '- 특정 이슈를 언급할 때는 반드시 "[issueNo] issueTitle" 형식으로 표기한다.',
+    '- 특정 이슈를 언급할 때는 반드시 "[issueNo] issueTitle" 형식으로 표기하되, "issueNo"가 없을 경우에는 "issueTitle"로만 표기한다.',
+    '- issues[].reportStartDate가 해당되는 주차에는 issues[].progressNote의 내용도 진행 상황에 적절히 포함한다.',
     '- "issueNo: issueTitle", "issueNo - issueTitle", Markdown 굵게(**텍스트**) 형식은 절대 사용하지 않는다.',
     '- 데이터에 없는 내용은 추측하지 말고, 확인되지 않은 완료/배포/일정은 단정하지 않는다.',
     '- 한국어로 자연스럽고 간결하게 작성한다.',
