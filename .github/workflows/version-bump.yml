@@ -1,0 +1,39 @@
+name: Version Bump
+
+# 버전 자동 증가 규칙
+# - 평소 푸시: 뒷자리 +1 (1.02 → 1.03)
+# - 커밋 메시지(제목 또는 본문)에 "버전업" 포함 시: 앞자리 +1, 뒷자리 00 (1.03 → 2.00)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/**'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Bump version
+        run: |
+          VER=$(grep -oP 'ver \K[\d.]+' index.html)
+          MAJOR=$(echo $VER | cut -d. -f1)
+          MINOR=$(echo $VER | cut -d. -f2)
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          if echo "$COMMIT_MSG" | grep -q '버전업'; then
+            NEW="$((MAJOR+1)).00"
+          else
+            NEW="$MAJOR.$(printf '%02d' $((10#$MINOR+1)))"
+          fi
+          sed -i "s/ver $VER/ver $NEW/" index.html
+          echo "Bumped: $VER → $NEW"
+
+      - name: Commit version
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add index.html
+          git commit -m "chore: ver bump" || exit 0
+          git push
